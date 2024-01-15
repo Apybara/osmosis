@@ -418,8 +418,23 @@ func (app *OsmosisApp) Name() string { return app.BaseApp.Name() }
 
 // BeginBlocker application updates every begin block.
 func (app *OsmosisApp) BeginBlocker(ctx sdk.Context, req abci.RequestBeginBlock) abci.ResponseBeginBlock {
+
+	//d := app.DistrKeeper.GetTotalRewards(ctx) // total rewards
+
+	totalRewardsBefore := app.DistrKeeper.GetTotalRewards(ctx)
+	for _, reward := range totalRewardsBefore {
+		fmt.Println("total rewards", reward.Denom)
+	}
+
 	BeginBlockForks(ctx, app)
-	return app.mm.BeginBlock(ctx, req)
+	responseBeginBlock := app.mm.BeginBlock(ctx, req)
+
+	totalRewardsAfter := app.DistrKeeper.GetTotalRewards(ctx)
+	for _, reward := range totalRewardsAfter {
+		fmt.Println("total rewards", reward.Denom)
+	}
+
+	return responseBeginBlock
 }
 
 // EndBlocker application updates every end block.
