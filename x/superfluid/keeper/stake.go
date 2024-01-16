@@ -8,10 +8,10 @@ import (
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/osmosis/osmoutils"
-	gammtypes "github.com/osmosis-labs/osmosis/v22/x/gamm/types"
-	lockuptypes "github.com/osmosis-labs/osmosis/v22/x/lockup/types"
-	"github.com/osmosis-labs/osmosis/v22/x/superfluid/types"
-	valsettypes "github.com/osmosis-labs/osmosis/v22/x/valset-pref/types"
+	gammtypes "github.com/osmosis-labs/osmosis/v21/x/gamm/types"
+	lockuptypes "github.com/osmosis-labs/osmosis/v21/x/lockup/types"
+	"github.com/osmosis-labs/osmosis/v21/x/superfluid/types"
+	valsettypes "github.com/osmosis-labs/osmosis/v21/x/valset-pref/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
@@ -44,7 +44,7 @@ func (k Keeper) GetExpectedDelegationAmount(ctx sdk.Context, acc types.Superflui
 
 // RefreshIntermediaryDelegationAmounts refreshes the amount of delegation for all intermediary accounts.
 // This method includes minting new osmo if the refreshed delegation amount has increased, and
-// instantly undelegating and burning if the refreshed delegation has decreased.
+// instantly undelegating and burning if the refreshed delgation has decreased.
 func (k Keeper) RefreshIntermediaryDelegationAmounts(ctx sdk.Context) {
 	// iterate over all intermedairy accounts - every (denom, validator) pair
 	accs := k.GetAllIntermediaryAccounts(ctx)
@@ -488,7 +488,7 @@ func (k Keeper) forceUndelegateAndBurnOsmoTokens(ctx sdk.Context,
 		return err
 	}
 	// TODO: Better understand and decide between ValidateUnbondAmount and SharesFromTokens
-	// briefly looked into it, did not understand what's correct.
+	// briefly looked into it, did not understand whats correct.
 	// TODO: ensure that intermediate account has at least osmoAmount staked.
 	shares, err := k.sk.ValidateUnbondAmount(
 		ctx, intermediaryAcc.GetAccAddress(), valAddr, osmoAmount,

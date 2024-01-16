@@ -1,38 +1,70 @@
 #!/bin/bash
 
-# Script for updating osmoutils, osmomath, epochs and ibc-hooks
+# Script for checking `git diff` between two commits and updating osmoutils, osmomath, epochs or ibc-hooks if any were changed between two commits
 # Used by Go Mod Auto Version Update workflow
-# Argument: sha of commit on target branch
+# First argument: sha of a first commit
+# Second argument: sha of a second commit
 
-commit_after=$1
+is_updated() {
+	if [ "${1}" != "" ]
+	then
+		return 1
+	fi
+	return 0
+}
 
-# Define modules
-modules=("osmoutils" "osmomath" "x/ibc-hooks" "x/epochs")
+commit_before=$1
+commit_after=$2
 
-# Find all go.mod files in the repo
-go_mod_files=$(find . -name go.mod)
+changed_osmoutils=$(git diff --name-only $commit_before $commit_after | grep osmoutils)
+changed_osmomath=$(git diff --name-only $commit_before $commit_after | grep osmomath)
+changed_ibc_hooks=$(git diff --name-only $commit_before $commit_after | grep x/ibc-hooks)
+changed_epochs=$(git diff --name-only $commit_before $commit_after | grep x/epochs)
 
-# Loop over each go.mod file
-for file in $go_mod_files; do
-  # Get the directory of the go.mod file
-  dir=$(dirname $file)
+is_updated $changed_osmoutils
+update_osmoutils=$?
 
-  # Change to that directory
-  cd $dir
+is_updated $changed_osmomath
+update_osmomath=$?
 
-  # Loop over each module
-  for module in ${modules[@]}; do
-    # Check if the module is a direct requirement
-    if grep -q "github.com/osmosis-labs/osmosis/$module" go.mod; then
-      # If it is, run go get with the provided commit
-      go get "github.com/osmosis-labs/osmosis/$module@$commit_after"
-    fi
-  done
+is_updated $changed_ibc_hooks
+update_ibc_hooks=$?
 
-  # Run go mod tidy and go work sync
-  go mod tidy
-  go work sync
+is_updated $changed_epochs
+update_epochs=$?
 
-  # Return to the root directory
-  cd - > /dev/null
-done
+if [ $update_osmoutils -eq 1 ]
+then 
+	go get github.com/osmosis-labs/osmosis/osmoutils@$commit_after
+
+    # x/epochs depends on osmoutils
+    cd x/epochs
+    go get github.com/osmosis-labs/osmosis/osmoutils@$commit_after
+    go mod tidy
+
+    # x/ibc-hooks depends on osmoutils
+    cd ../ibc-hooks
+    go get github.com/osmosis-labs/osmosis/osmoutils@$commit_after
+    go mod tidy
+    
+    # return to root
+    cd ../..
+fi
+
+if [ $update_osmomath -eq 1 ]
+then 
+	go get github.com/osmosis-labs/osmosis/osmomath@$commit_after
+fi
+
+if [ $update_ibc_hooks -eq 1 ]
+then 
+	go get github.com/osmosis-labs/osmosis/x/ibc-hooks@$commit_after
+fi
+
+if [ $update_epochs -eq 1 ]
+then 
+	go get github.com/osmosis-labs/osmosis/x/epochs@$commit_after
+fi
+
+go mod tidy
+go work sync

@@ -8,7 +8,7 @@ ARG BUILD_TAGS="netgo,ledger,muslc"
 # Builder
 # --------------------------------------------------------
 
-FROM golang:${GO_VERSION}-alpine3.18 as builder
+FROM golang:${GO_VERSION}-alpine as builder
 
 ARG GIT_VERSION
 ARG GIT_COMMIT
@@ -48,7 +48,7 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
     -X github.com/cosmos/cosmos-sdk/version.AppName="osmosisd" \
     -X github.com/cosmos/cosmos-sdk/version.Version=${GIT_VERSION} \
     -X github.com/cosmos/cosmos-sdk/version.Commit=${GIT_COMMIT} \
-    -X github.com/cosmos/cosmos-sdk/version.BuildTags=${BUILD_TAGS} \
+    -X github.com/cosmos/cosmos-sdk/version.BuildTags=netgo,ledger,muslc \
     -w -s -linkmode=external -extldflags '-Wl,-z,muldefs -static'" \
     -trimpath \
     -o /osmosis/build/osmosisd \

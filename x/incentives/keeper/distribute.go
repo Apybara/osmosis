@@ -3,7 +3,6 @@ package keeper
 import (
 	"errors"
 	"fmt"
-	"math/big"
 	"time"
 
 	db "github.com/cometbft/cometbft-db"
@@ -12,11 +11,9 @@ import (
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/osmosis/osmoutils/coinutil"
-	"github.com/osmosis-labs/osmosis/v22/x/incentives/types"
-	lockuptypes "github.com/osmosis-labs/osmosis/v22/x/lockup/types"
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v22/x/poolmanager/types"
-
-	sdkmath "cosmossdk.io/math"
+	"github.com/osmosis-labs/osmosis/v21/x/incentives/types"
+	lockuptypes "github.com/osmosis-labs/osmosis/v21/x/lockup/types"
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v21/x/poolmanager/types"
 )
 
 var (
@@ -673,15 +670,13 @@ func (k Keeper) distributeInternal(
 			// too expensive + verbose even in debug mode.
 			// ctx.Logger().Debug("distributeInternal, distribute to lock", "module", types.ModuleName, "gaugeId", gauge.Id, "lockId", lock.ID, "remainCons", remainCoins, "height", ctx.BlockHeight())
 
-			denomLockAmt := guaranteedNonzeroCoinAmountOf(lock.Coins, denom).BigIntMut()
+			denomLockAmt := guaranteedNonzeroCoinAmountOf(lock.Coins, denom)
 			for _, coin := range remainCoins {
-				amtInt := sdkmath.NewIntFromBigInt(denomLockAmt)
-				amtIntBi := amtInt.BigIntMut()
 				// distribution amount = gauge_size * denom_lock_amount / (total_denom_lock_amount * remain_epochs)
-				amtIntBi = amtIntBi.Mul(amtIntBi, coin.Amount.BigIntMut())
-				checkBigInt(amtIntBi)
+				amtInt := coin.Amount.Mul(denomLockAmt)
+				amtIntBi := amtInt.BigIntMut()
 				amtIntBi.Quo(amtIntBi, lockSumTimesRemainingEpochsBi)
-				if amtInt.Sign() == 1 {
+				if amtInt.IsPositive() {
 					newlyDistributedCoin := sdk.Coin{Denom: coin.Denom, Amount: amtInt}
 					distrCoins = distrCoins.Add(newlyDistributedCoin)
 				}
@@ -711,12 +706,6 @@ func (k Keeper) distributeInternal(
 
 	err := k.updateGaugePostDistribute(ctx, gauge, totalDistrCoins)
 	return totalDistrCoins, err
-}
-
-func checkBigInt(bi *big.Int) {
-	if bi.BitLen() > sdkmath.MaxBitLen {
-		panic("overflow")
-	}
 }
 
 // faster coins.AmountOf if we know that coins must contain the denom.
@@ -773,7 +762,7 @@ func (k Keeper) handleGroupPostDistribute(ctx sdk.Context, groupGauge types.Gaug
 }
 
 // getDistributeToBaseLocks takes a gauge along with cached period locks by denom and returns locks that must be distributed to
-func (k Keeper) getDistributeToBaseLocks(ctx sdk.Context, gauge types.Gauge, cache map[string][]lockuptypes.PeriodLock, scratchSlice *[]*lockuptypes.PeriodLock) []*lockuptypes.PeriodLock {
+func (k Keeper) getDistributeToBaseLocks(ctx sdk.Context, gauge types.Gauge, cache map[string][]lockuptypes.PeriodLock) []*lockuptypes.PeriodLock {
 	// if gauge is empty, don't get the locks
 	if gauge.Coins.Empty() {
 		return []*lockuptypes.PeriodLock{}
@@ -788,7 +777,7 @@ func (k Keeper) getDistributeToBaseLocks(ctx sdk.Context, gauge types.Gauge, cac
 	// get this from memory instead of hitting iterators / underlying stores.
 	// due to many details of cacheKVStore, iteration will still cause expensive IAVL reads.
 	allLocks := cache[distributeBaseDenom]
-	return FilterLocksByMinDuration(allLocks, gauge.DistributeTo.Duration, scratchSlice)
+	return FilterLocksByMinDuration(allLocks, gauge.DistributeTo.Duration)
 }
 
 // Distribute distributes coins from an array of gauges to all eligible locks and pools in the case of "NoLock" gauges.
@@ -799,11 +788,10 @@ func (k Keeper) Distribute(ctx sdk.Context, gauges []types.Gauge) (sdk.Coins, er
 
 	locksByDenomCache := make(map[string][]lockuptypes.PeriodLock)
 	totalDistributedCoins := sdk.NewCoins()
-	scratchSlice := make([]*lockuptypes.PeriodLock, 0, 10000)
 
 	for _, gauge := range gauges {
 		var gaugeDistributedCoins sdk.Coins
-		filteredLocks := k.getDistributeToBaseLocks(ctx, gauge, locksByDenomCache, &scratchSlice)
+		filteredLocks := k.getDistributeToBaseLocks(ctx, gauge, locksByDenomCache)
 		// send based on synthetic lockup coins if it's distributing to synthetic lockups
 		var err error
 		if lockuptypes.IsSyntheticDenom(gauge.DistributeTo.Denom) {

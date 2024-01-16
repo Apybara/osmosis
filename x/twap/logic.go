@@ -8,7 +8,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
-	"github.com/osmosis-labs/osmosis/v22/x/twap/types"
+	"github.com/osmosis-labs/osmosis/v21/x/twap/types"
 )
 
 func newTwapRecord(k types.PoolManagerInterface, ctx sdk.Context, poolId uint64, denom0, denom1 string) (types.TwapRecord, error) {
@@ -165,7 +165,7 @@ func (k Keeper) updateRecord(ctx sdk.Context, record types.TwapRecord) (types.Tw
 	// then the TwapAccumulator variables are zero.
 
 	// Handle record after creating pool
-	// In case record height should equal to ctx height
+	// Incase record height should equal to ctx height
 	// But ArithmeticTwapAccumulators should be zero
 	if (record.Height == ctx.BlockHeight() || record.Time.Equal(ctx.BlockTime())) &&
 		!record.P1ArithmeticTwapAccumulator.IsZero() &&
@@ -225,10 +225,10 @@ func recordWithUpdatedAccumulators(record types.TwapRecord, newTime time.Time) t
 	// thus it is treated as the effective spot price until the new time.
 	// (As there was no change until at or after this time)
 	p0NewAccum := types.SpotPriceMulDuration(record.P0LastSpotPrice, timeDelta)
-	newRecord.P0ArithmeticTwapAccumulator = p0NewAccum.AddMut(newRecord.P0ArithmeticTwapAccumulator)
+	newRecord.P0ArithmeticTwapAccumulator = newRecord.P0ArithmeticTwapAccumulator.Add(p0NewAccum)
 
 	p1NewAccum := types.SpotPriceMulDuration(record.P1LastSpotPrice, timeDelta)
-	newRecord.P1ArithmeticTwapAccumulator = p1NewAccum.AddMut(newRecord.P1ArithmeticTwapAccumulator)
+	newRecord.P1ArithmeticTwapAccumulator = newRecord.P1ArithmeticTwapAccumulator.Add(p1NewAccum)
 
 	// If the last spot price is zero, then the logarithm is undefined.
 	// As a result, we cannot update the geometric accumulator.
@@ -249,7 +249,7 @@ func recordWithUpdatedAccumulators(record types.TwapRecord, newTime time.Time) t
 	logP0SpotPrice := twapLog(record.P0LastSpotPrice)
 	// p0NewGeomAccum = log_{2}{P_0} * timeDelta
 	p0NewGeomAccum := types.SpotPriceMulDuration(logP0SpotPrice, timeDelta)
-	newRecord.GeometricTwapAccumulator = p0NewGeomAccum.AddMut(newRecord.GeometricTwapAccumulator)
+	newRecord.GeometricTwapAccumulator = newRecord.GeometricTwapAccumulator.Add(p0NewGeomAccum)
 
 	return newRecord
 }

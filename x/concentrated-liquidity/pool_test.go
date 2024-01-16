@@ -8,13 +8,13 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
-	cl "github.com/osmosis-labs/osmosis/v22/x/concentrated-liquidity"
-	clmodel "github.com/osmosis-labs/osmosis/v22/x/concentrated-liquidity/model"
-	"github.com/osmosis-labs/osmosis/v22/x/concentrated-liquidity/types"
-	"github.com/osmosis-labs/osmosis/v22/x/gamm/pool-models/balancer"
-	lockuptypes "github.com/osmosis-labs/osmosis/v22/x/lockup/types"
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v22/x/poolmanager/types"
-	sftypes "github.com/osmosis-labs/osmosis/v22/x/superfluid/types"
+	cl "github.com/osmosis-labs/osmosis/v21/x/concentrated-liquidity"
+	clmodel "github.com/osmosis-labs/osmosis/v21/x/concentrated-liquidity/model"
+	"github.com/osmosis-labs/osmosis/v21/x/concentrated-liquidity/types"
+	"github.com/osmosis-labs/osmosis/v21/x/gamm/pool-models/balancer"
+	lockuptypes "github.com/osmosis-labs/osmosis/v21/x/lockup/types"
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v21/x/poolmanager/types"
+	sftypes "github.com/osmosis-labs/osmosis/v21/x/superfluid/types"
 )
 
 func (s *KeeperTestSuite) TestInitializePool() {
@@ -505,13 +505,13 @@ func (s *KeeperTestSuite) TestDecreaseConcentratedPoolTickSpacing() {
 			expectedDecreaseSpacingErr: fmt.Errorf("tick spacing %d is not valid", 1000),
 		},
 		{
-			name:                      "error: can't create position whose lower tick is not divisible by new tick spacing",
+			name:                      "error: cant create position whose lower tick is not divisible by new tick spacing",
 			poolIdToTickSpacingRecord: []types.PoolIdToTickSpacingRecord{{PoolId: 1, NewTickSpacing: 10}},
 			position:                  positionRange{lowerTick: -95, upperTick: 100},
 			expectedCreatePositionErr: types.TickSpacingError{TickSpacing: 10, LowerTick: -95, UpperTick: 100},
 		},
 		{
-			name:                      "error: can't create position whose upper tick is not divisible by new tick spacing",
+			name:                      "error: cant create position whose upper tick is not divisible by new tick spacing",
 			poolIdToTickSpacingRecord: []types.PoolIdToTickSpacingRecord{{PoolId: 1, NewTickSpacing: 10}},
 			position:                  positionRange{lowerTick: -100, upperTick: 95},
 			expectedCreatePositionErr: types.TickSpacingError{TickSpacing: 10, LowerTick: -100, UpperTick: 95},

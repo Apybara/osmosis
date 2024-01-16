@@ -9,9 +9,9 @@ import (
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/osmosis/osmoutils"
-	incentiveskeeper "github.com/osmosis-labs/osmosis/v22/x/incentives/keeper"
-	"github.com/osmosis-labs/osmosis/v22/x/incentives/types"
-	lockuptypes "github.com/osmosis-labs/osmosis/v22/x/lockup/types"
+	incentiveskeeper "github.com/osmosis-labs/osmosis/v21/x/incentives/keeper"
+	"github.com/osmosis-labs/osmosis/v21/x/incentives/types"
+	lockuptypes "github.com/osmosis-labs/osmosis/v21/x/lockup/types"
 )
 
 var _ = suite.TestingSuite(nil)
@@ -283,24 +283,24 @@ func (s *KeeperTestSuite) TestChargeFeeIfSufficientFeeDenomBalance() {
 
 		expectError bool
 	}{
-		"fee + base denom gauge coin == account balance, success": {
+		"fee + base denom gauge coin == acount balance, success": {
 			accountBalanceToFund: sdk.NewCoin(sdk.DefaultBondDenom, osmomath.NewInt(baseFee)),
 			feeToCharge:          baseFee / 2,
 			gaugeCoins:           sdk.NewCoins(sdk.NewCoin(sdk.DefaultBondDenom, osmomath.NewInt(baseFee/2))),
 		},
-		"fee + base denom gauge coin < account balance, success": {
+		"fee + base denom gauge coin < acount balance, success": {
 			accountBalanceToFund: sdk.NewCoin(sdk.DefaultBondDenom, osmomath.NewInt(baseFee)),
 			feeToCharge:          baseFee/2 - 1,
 			gaugeCoins:           sdk.NewCoins(sdk.NewCoin(sdk.DefaultBondDenom, osmomath.NewInt(baseFee/2))),
 		},
-		"fee + base denom gauge coin > account balance, error": {
+		"fee + base denom gauge coin > acount balance, error": {
 			accountBalanceToFund: sdk.NewCoin(sdk.DefaultBondDenom, osmomath.NewInt(baseFee)),
 			feeToCharge:          baseFee/2 + 1,
 			gaugeCoins:           sdk.NewCoins(sdk.NewCoin(sdk.DefaultBondDenom, osmomath.NewInt(baseFee/2))),
 
 			expectError: true,
 		},
-		"fee + base denom gauge coin < account balance, custom values, success": {
+		"fee + base denom gauge coin < acount balance, custom values, success": {
 			accountBalanceToFund: sdk.NewCoin(sdk.DefaultBondDenom, osmomath.NewInt(11793193112)),
 			feeToCharge:          55,
 			gaugeCoins:           sdk.NewCoins(sdk.NewCoin(sdk.DefaultBondDenom, osmomath.NewInt(328812))),

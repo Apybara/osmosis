@@ -20,20 +20,20 @@ import (
 	"github.com/cosmos/gogoproto/proto"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
-	"github.com/osmosis-labs/osmosis/v22/x/gamm/pool-models/balancer"
-	gammtypes "github.com/osmosis-labs/osmosis/v22/x/gamm/types"
-	incentivestypes "github.com/osmosis-labs/osmosis/v22/x/incentives/types"
-	minttypes "github.com/osmosis-labs/osmosis/v22/x/mint/types"
-	poolitypes "github.com/osmosis-labs/osmosis/v22/x/pool-incentives/types"
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v22/x/poolmanager/types"
-	protorevtypes "github.com/osmosis-labs/osmosis/v22/x/protorev/types"
-	twaptypes "github.com/osmosis-labs/osmosis/v22/x/twap/types"
-	txfeestypes "github.com/osmosis-labs/osmosis/v22/x/txfees/types"
+	"github.com/osmosis-labs/osmosis/v21/x/gamm/pool-models/balancer"
+	gammtypes "github.com/osmosis-labs/osmosis/v21/x/gamm/types"
+	incentivestypes "github.com/osmosis-labs/osmosis/v21/x/incentives/types"
+	minttypes "github.com/osmosis-labs/osmosis/v21/x/mint/types"
+	poolitypes "github.com/osmosis-labs/osmosis/v21/x/pool-incentives/types"
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v21/x/poolmanager/types"
+	protorevtypes "github.com/osmosis-labs/osmosis/v21/x/protorev/types"
+	twaptypes "github.com/osmosis-labs/osmosis/v21/x/twap/types"
+	txfeestypes "github.com/osmosis-labs/osmosis/v21/x/txfees/types"
 	epochtypes "github.com/osmosis-labs/osmosis/x/epochs/types"
 
 	types1 "github.com/cosmos/cosmos-sdk/codec/types"
 
-	"github.com/osmosis-labs/osmosis/v22/tests/e2e/util"
+	"github.com/osmosis-labs/osmosis/v21/tests/e2e/util"
 )
 
 // NodeConfig is a confiuration for the node supplied from the test runner
@@ -456,7 +456,7 @@ func updateTWAPGenesis(appGenState map[string]json.RawMessage) func(twapGenState
 		gammGenState := &gammtypes.GenesisState{}
 		util.Cdc.MustUnmarshalJSON(appGenState[gammtypes.ModuleName], gammGenState)
 
-		// Lower keep period from defaults to allows us to test pruning.
+		// Lower keep period from defaults to allos us to test pruning.
 		twapGenState.Params.RecordHistoryKeepPeriod = time.Second * 15
 
 		for _, poolAny := range gammGenState.Pools {
@@ -533,20 +533,18 @@ func updateGenUtilGenesis(c *internalChain) func(*genutiltypes.GenesisState) {
 				stakeAmountCoin = StakeAmountCoinB
 			}
 			createValmsg, err := node.buildCreateValidatorMsg(stakeAmountCoin)
-
-			const genesisSetupFailed = "genutil genesis setup failed: "
 			if err != nil {
-				panic(genesisSetupFailed + err.Error())
+				panic("genutil genesis setup failed: " + err.Error())
 			}
 
 			signedTx, err := node.signMsg(createValmsg)
 			if err != nil {
-				panic(genesisSetupFailed + err.Error())
+				panic("genutil genesis setup failed: " + err.Error())
 			}
 
 			txRaw, err := util.Cdc.MarshalJSON(signedTx)
 			if err != nil {
-				panic(genesisSetupFailed + err.Error())
+				panic("genutil genesis setup failed: " + err.Error())
 			}
 			genTxs = append(genTxs, txRaw)
 		}

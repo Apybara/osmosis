@@ -34,7 +34,7 @@ When reporting a vulnerability through either method, please include the followi
 - Description of the vulnerability
 - Steps to reproduce the issue
 - Impact of the issue
-- Explanation of how an attacker could exploit it
+- Eplanation on how an attacker could exploit it
 
 ## Vulnerability Disclosure Process
 

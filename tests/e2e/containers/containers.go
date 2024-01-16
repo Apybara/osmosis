@@ -19,8 +19,8 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
-	"github.com/osmosis-labs/osmosis/v22/tests/e2e/initialization"
-	txfeestypes "github.com/osmosis-labs/osmosis/v22/x/txfees/types"
+	"github.com/osmosis-labs/osmosis/v21/tests/e2e/initialization"
+	txfeestypes "github.com/osmosis-labs/osmosis/v21/x/txfees/types"
 )
 
 type TxResponse struct {
@@ -72,7 +72,7 @@ type Manager struct {
 }
 
 // NewManager creates a new Manager instance and initializes
-// all Docker specific utilities. Returns an error if initialisation fails.
+// all Docker specific utilies. Returns an error if initialiation fails.
 func NewManager(isUpgrade bool, isFork bool, isDebugLogEnabled bool) (docker *Manager, err error) {
 	docker = &Manager{
 		ImageConfig:       NewImageConfig(isUpgrade, isFork),
@@ -470,7 +470,7 @@ func (m *Manager) RunHermesResource(chainAID, osmoARelayerNodeName, osmoAValMnem
 	return hermesResource, nil
 }
 
-// RunNodeResource runs a node container. Assigns containerName to the container.
+// RunNodeResource runs a node container. Assings containerName to the container.
 // Mounts the container on valConfigDir volume on the running host. Returns the container resource and error if any.
 func (m *Manager) RunNodeResource(chainId string, containerName, valCondifDir string) (*dockertest.Resource, error) {
 	pwd, err := os.Getwd()

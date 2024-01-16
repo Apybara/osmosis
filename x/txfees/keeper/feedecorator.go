@@ -9,9 +9,9 @@ import (
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
-	mempool1559 "github.com/osmosis-labs/osmosis/v22/x/txfees/keeper/mempool-1559"
-	"github.com/osmosis-labs/osmosis/v22/x/txfees/keeper/txfee_filters"
-	"github.com/osmosis-labs/osmosis/v22/x/txfees/types"
+	mempool1559 "github.com/osmosis-labs/osmosis/v21/x/txfees/keeper/mempool-1559"
+	"github.com/osmosis-labs/osmosis/v21/x/txfees/keeper/txfee_filters"
+	"github.com/osmosis-labs/osmosis/v21/x/txfees/types"
 
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 )
@@ -300,6 +300,8 @@ func DeductFees(txFeesKeeper types.TxFeesKeeper, bankKeeper types.BankKeeper, ct
 			return errorsmod.Wrapf(sdkerrors.ErrInsufficientFunds, err.Error())
 		}
 	}
+
+	txFeesKeeper.IncreaseTxFeesTracker(ctx, fees[0])
 
 	return nil
 }

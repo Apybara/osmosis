@@ -8,11 +8,11 @@ import (
 	distrtypes "github.com/cosmos/cosmos-sdk/x/distribution/types"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
-	"github.com/osmosis-labs/osmosis/v22/app/apptesting"
-	incentiveskeeper "github.com/osmosis-labs/osmosis/v22/x/incentives/keeper"
-	"github.com/osmosis-labs/osmosis/v22/x/incentives/types"
-	poolincentivetypes "github.com/osmosis-labs/osmosis/v22/x/pool-incentives/types"
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v22/x/poolmanager/types"
+	"github.com/osmosis-labs/osmosis/v21/app/apptesting"
+	incentiveskeeper "github.com/osmosis-labs/osmosis/v21/x/incentives/keeper"
+	"github.com/osmosis-labs/osmosis/v21/x/incentives/types"
+	poolincentivetypes "github.com/osmosis-labs/osmosis/v21/x/pool-incentives/types"
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v21/x/poolmanager/types"
 )
 
 type createGroupTestCase struct {
@@ -194,9 +194,9 @@ func (s *KeeperTestSuite) TestCreateGroup() {
 		{
 			// This test:
 			// Performs the same validations as TestCreateGroupInternal with the exceptions:
-			// - Group is written to start
+			// - Group is writen to start
 			// - Can only be run by an incentives module account
-			// - syncing volume is not attempted (initialized to zero)
+			// - synching volume is not attempted (initialized to zero)
 			name:                "CreateGroupAsIncentivesModuleAcc",
 			systemUnderTestType: CreateGroupAsIncentivesModuleAcc,
 		},
@@ -273,7 +273,7 @@ func (s *KeeperTestSuite) runCreateGroupTests(poolInfo apptesting.SupportedPoolA
 			// Ensure we configured volumes and pools correctly
 			s.overwriteVolumes(tc.poolIDs, tc.poolVolumesToSet)
 
-			// Since we expect weight syncing to occur, we update the expected weights
+			// Since we expect weight synching to occur, we update the expected weights
 			// with the volumes we set above.
 			configureExpectedWeights(&tc)
 

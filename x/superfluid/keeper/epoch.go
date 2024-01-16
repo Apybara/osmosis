@@ -9,13 +9,13 @@ import (
 	distributiontypes "github.com/cosmos/cosmos-sdk/x/distribution/types"
 
 	"github.com/osmosis-labs/osmosis/osmoutils"
-	cl "github.com/osmosis-labs/osmosis/v22/x/concentrated-liquidity"
-	"github.com/osmosis-labs/osmosis/v22/x/concentrated-liquidity/model"
-	cltypes "github.com/osmosis-labs/osmosis/v22/x/concentrated-liquidity/types"
-	gammtypes "github.com/osmosis-labs/osmosis/v22/x/gamm/types"
-	incentivestypes "github.com/osmosis-labs/osmosis/v22/x/incentives/types"
-	lockuptypes "github.com/osmosis-labs/osmosis/v22/x/lockup/types"
-	"github.com/osmosis-labs/osmosis/v22/x/superfluid/types"
+	cl "github.com/osmosis-labs/osmosis/v21/x/concentrated-liquidity"
+	"github.com/osmosis-labs/osmosis/v21/x/concentrated-liquidity/model"
+	cltypes "github.com/osmosis-labs/osmosis/v21/x/concentrated-liquidity/types"
+	gammtypes "github.com/osmosis-labs/osmosis/v21/x/gamm/types"
+	incentivestypes "github.com/osmosis-labs/osmosis/v21/x/incentives/types"
+	lockuptypes "github.com/osmosis-labs/osmosis/v21/x/lockup/types"
+	"github.com/osmosis-labs/osmosis/v21/x/superfluid/types"
 )
 
 func (k Keeper) AfterEpochEnd(ctx sdk.Context, epochIdentifier string, _ int64) error {
@@ -33,7 +33,7 @@ func (k Keeper) AfterEpochStartBeginBlock(ctx sdk.Context) {
 
 	ctx.Logger().Info("Distribute Superfluid gauges")
 	//nolint:errcheck
-	osmoutils.ApplyFuncIfNoError(ctx, func(cacheCtx sdk.Context) error {
+	osmoutils.UnmeteredApplyFuncIfNoError(ctx, func(cacheCtx sdk.Context) error {
 		k.distributeSuperfluidGauges(cacheCtx)
 		return nil
 	})
@@ -70,7 +70,7 @@ func (k Keeper) MoveSuperfluidDelegationRewardToGauges(ctx sdk.Context) {
 
 		// To avoid unexpected issues on WithdrawDelegationRewards and AddToGaugeRewards
 		// we use cacheCtx and apply the changes later
-		_ = osmoutils.ApplyFuncIfNoError(ctx, func(cacheCtx sdk.Context) error {
+		_ = osmoutils.UnmeteredApplyFuncIfNoError(ctx, func(cacheCtx sdk.Context) error {
 			_, err := k.ck.WithdrawDelegationRewards(cacheCtx, addr, valAddr)
 			if errors.Is(err, distributiontypes.ErrEmptyDelegationDistInfo) {
 				ctx.Logger().Debug("no swaps occurred in this pool between last epoch and this epoch")
@@ -80,7 +80,7 @@ func (k Keeper) MoveSuperfluidDelegationRewardToGauges(ctx sdk.Context) {
 		})
 
 		// Send delegation rewards to gauges
-		_ = osmoutils.ApplyFuncIfNoError(ctx, func(cacheCtx sdk.Context) error {
+		_ = osmoutils.UnmeteredApplyFuncIfNoError(ctx, func(cacheCtx sdk.Context) error {
 			// Note! We only send the bond denom (osmo), to avoid attack vectors where people
 			// send many different denoms to the intermediary account, and make a resource exhaustion attack on end block.
 			bondDenom := k.sk.BondDenom(cacheCtx)

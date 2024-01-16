@@ -2,7 +2,6 @@ package app
 
 import (
 	"fmt"
-	apybara_indexer "github.com/osmosis-labs/osmosis/v22/app/apybara-indexer"
 	"io"
 	"net/http"
 	"os"
@@ -10,7 +9,6 @@ import (
 	"reflect"
 
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
-	"gorm.io/gorm"
 
 	"github.com/cosmos/cosmos-sdk/x/auth"
 	authsims "github.com/cosmos/cosmos-sdk/x/auth/simulation"
@@ -32,9 +30,6 @@ import (
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 	"github.com/cosmos/ibc-go/v7/modules/apps/transfer"
 	ibc "github.com/cosmos/ibc-go/v7/modules/core"
-
-	"github.com/osmosis-labs/osmosis/v22/ingest/sqs"
-	"github.com/osmosis-labs/osmosis/v22/ingest/sqs/domain"
 
 	"github.com/osmosis-labs/osmosis/osmoutils"
 
@@ -74,33 +69,36 @@ import (
 	authtx "github.com/cosmos/cosmos-sdk/x/auth/tx"
 	"github.com/cosmos/cosmos-sdk/x/crisis"
 
-	protorevtypes "github.com/osmosis-labs/osmosis/v22/x/protorev/types"
+	protorevtypes "github.com/osmosis-labs/osmosis/v21/x/protorev/types"
 
-	"github.com/osmosis-labs/osmosis/v22/app/keepers"
-	"github.com/osmosis-labs/osmosis/v22/app/upgrades"
-	v10 "github.com/osmosis-labs/osmosis/v22/app/upgrades/v10"
-	v11 "github.com/osmosis-labs/osmosis/v22/app/upgrades/v11"
-	v12 "github.com/osmosis-labs/osmosis/v22/app/upgrades/v12"
-	v13 "github.com/osmosis-labs/osmosis/v22/app/upgrades/v13"
-	v14 "github.com/osmosis-labs/osmosis/v22/app/upgrades/v14"
-	v15 "github.com/osmosis-labs/osmosis/v22/app/upgrades/v15"
-	v16 "github.com/osmosis-labs/osmosis/v22/app/upgrades/v16"
-	v17 "github.com/osmosis-labs/osmosis/v22/app/upgrades/v17"
-	v18 "github.com/osmosis-labs/osmosis/v22/app/upgrades/v18"
-	v19 "github.com/osmosis-labs/osmosis/v22/app/upgrades/v19"
-	v20 "github.com/osmosis-labs/osmosis/v22/app/upgrades/v20"
-	v21 "github.com/osmosis-labs/osmosis/v22/app/upgrades/v21"
-	v22 "github.com/osmosis-labs/osmosis/v22/app/upgrades/v22"
-	v3 "github.com/osmosis-labs/osmosis/v22/app/upgrades/v3"
-	v4 "github.com/osmosis-labs/osmosis/v22/app/upgrades/v4"
-	v5 "github.com/osmosis-labs/osmosis/v22/app/upgrades/v5"
-	v6 "github.com/osmosis-labs/osmosis/v22/app/upgrades/v6"
-	v7 "github.com/osmosis-labs/osmosis/v22/app/upgrades/v7"
-	v8 "github.com/osmosis-labs/osmosis/v22/app/upgrades/v8"
-	v9 "github.com/osmosis-labs/osmosis/v22/app/upgrades/v9"
-	_ "github.com/osmosis-labs/osmosis/v22/client/docs/statik"
-	"github.com/osmosis-labs/osmosis/v22/ingest"
-	"github.com/osmosis-labs/osmosis/v22/x/mint"
+	"github.com/osmosis-labs/osmosis/v21/app/keepers"
+	"github.com/osmosis-labs/osmosis/v21/app/upgrades"
+	v10 "github.com/osmosis-labs/osmosis/v21/app/upgrades/v10"
+	v11 "github.com/osmosis-labs/osmosis/v21/app/upgrades/v11"
+	v12 "github.com/osmosis-labs/osmosis/v21/app/upgrades/v12"
+	v13 "github.com/osmosis-labs/osmosis/v21/app/upgrades/v13"
+	v14 "github.com/osmosis-labs/osmosis/v21/app/upgrades/v14"
+	v15 "github.com/osmosis-labs/osmosis/v21/app/upgrades/v15"
+	v16 "github.com/osmosis-labs/osmosis/v21/app/upgrades/v16"
+	v17 "github.com/osmosis-labs/osmosis/v21/app/upgrades/v17"
+	v18 "github.com/osmosis-labs/osmosis/v21/app/upgrades/v18"
+	v19 "github.com/osmosis-labs/osmosis/v21/app/upgrades/v19"
+	v20 "github.com/osmosis-labs/osmosis/v21/app/upgrades/v20"
+	v21 "github.com/osmosis-labs/osmosis/v21/app/upgrades/v21"
+	v3 "github.com/osmosis-labs/osmosis/v21/app/upgrades/v3"
+	v4 "github.com/osmosis-labs/osmosis/v21/app/upgrades/v4"
+	v5 "github.com/osmosis-labs/osmosis/v21/app/upgrades/v5"
+	v6 "github.com/osmosis-labs/osmosis/v21/app/upgrades/v6"
+	v7 "github.com/osmosis-labs/osmosis/v21/app/upgrades/v7"
+	v8 "github.com/osmosis-labs/osmosis/v21/app/upgrades/v8"
+	v9 "github.com/osmosis-labs/osmosis/v21/app/upgrades/v9"
+	_ "github.com/osmosis-labs/osmosis/v21/client/docs/statik"
+	"github.com/osmosis-labs/osmosis/v21/ingest"
+	"github.com/osmosis-labs/osmosis/v21/x/mint"
+
+	"github.com/osmosis-labs/osmosis/v21/ingest/sqs"
+
+	"github.com/osmosis-labs/osmosis/v21/ingest/sqs/pools/common"
 )
 
 const appName = "OsmosisApp"
@@ -138,7 +136,7 @@ var (
 
 	_ runtime.AppI = (*OsmosisApp)(nil)
 
-	Upgrades = []upgrades.Upgrade{v4.Upgrade, v5.Upgrade, v7.Upgrade, v9.Upgrade, v11.Upgrade, v12.Upgrade, v13.Upgrade, v14.Upgrade, v15.Upgrade, v16.Upgrade, v17.Upgrade, v18.Upgrade, v19.Upgrade, v20.Upgrade, v21.Upgrade, v22.Upgrade}
+	Upgrades = []upgrades.Upgrade{v4.Upgrade, v5.Upgrade, v7.Upgrade, v9.Upgrade, v11.Upgrade, v12.Upgrade, v13.Upgrade, v14.Upgrade, v15.Upgrade, v16.Upgrade, v17.Upgrade, v18.Upgrade, v19.Upgrade, v20.Upgrade, v21.Upgrade}
 	Forks    = []upgrades.Fork{v3.Fork, v6.Fork, v8.Fork, v10.Fork}
 )
 
@@ -168,14 +166,6 @@ func init() {
 	}
 
 	DefaultNodeHome = filepath.Join(userHomeDir, ".osmosisd")
-
-	dsn := os.Getenv("APYBARA_INDEXER_DB_DSN")
-	db, err := apybara_indexer.ConnectPg(dsn)
-	if err != nil {
-		fmt.Sprintf("failed to connect to db: %s", err.Error())
-	}
-	ApybaraDB = db
-	ApybaraIndexer = apybara_indexer.RewardCalculatorService{Database: db}
 }
 
 // initReusablePackageInjections injects data available within osmosis into the reusable packages.
@@ -269,7 +259,7 @@ func NewOsmosisApp(
 
 	// Initialize the SQS ingester if it is enabled.
 	if sqsConfig.IsEnabled {
-		sqsKeepers := domain.SQSIngestKeepers{
+		sqsKeepers := common.SQSIngestKeepers{
 			GammKeeper:         app.GAMMKeeper,
 			CosmWasmPoolKeeper: app.CosmwasmPoolKeeper,
 			BankKeeper:         app.BankKeeper,
@@ -308,7 +298,7 @@ func NewOsmosisApp(
 	// Generally NewAppModule will require the keeper that module defines to be passed in as an exact struct,
 	// but should take in every other keeper as long as it matches a certain interface. (So no need to be de-ref'd)
 	//
-	// Any time a module requires a keeper de-ref'd that's not its native one,
+	// Any time a module requires a keeper de-ref'd thats not its native one,
 	// its code-smell and should probably change. We should get the staking keeper dependencies fixed.
 	app.mm = module.NewManager(appModules(app, encodingConfig, skipGenesisInvariants)...)
 
@@ -426,104 +416,10 @@ func (app *OsmosisApp) GetBaseApp() *baseapp.BaseApp {
 // Name returns the name of the App.
 func (app *OsmosisApp) Name() string { return app.BaseApp.Name() }
 
-var ApybaraDB *gorm.DB
-var ApybaraIndexer apybara_indexer.RewardCalculatorService
-
 // BeginBlocker application updates every begin block.
 func (app *OsmosisApp) BeginBlocker(ctx sdk.Context, req abci.RequestBeginBlock) abci.ResponseBeginBlock {
-
-	var blockInfoForAA0 apybara_indexer.BlockerAmount
-	var blockInfoForEB2 apybara_indexer.BlockerAmount
-	var blockInfoFor452 apybara_indexer.BlockerAmount
-	var blockInfoForFCC apybara_indexer.BlockerAmount
-	var blockInfosForUosmo apybara_indexer.BlockerAmount
-	var blockInfosForUion apybara_indexer.BlockerAmount
-
-	totalRewardsBefore := app.DistrKeeper.GetTotalRewards(ctx)
-	for _, reward := range totalRewardsBefore {
-
-		if reward.Denom == "ibc/0EF15DF2F02480ADE0BB6E85D9EBB5DAEA2836D3860E9F97F9AADE4F57A31AA0" {
-			blockInfoForAA0.BeforeBeginBlocker = reward.Amount
-			blockInfoForAA0.Denom = reward.Denom
-		}
-
-		if reward.Denom == "ibc/27394FB092D2ECCD56123C74F36E4C1F926001CEADA9CA97EA622B25F41E5EB2" {
-			blockInfoForEB2.BeforeBeginBlocker = reward.Amount
-			blockInfoForEB2.Denom = reward.Denom
-		}
-
-		if reward.Denom == "ibc/4E5444C35610CC76FC94E7F7886B93121175C28262DDFDDE6F84E82BF2425452" {
-			blockInfoFor452.BeforeBeginBlocker = reward.Amount
-			blockInfoFor452.Denom = reward.Denom
-		}
-
-		if reward.Denom == "ibc/BE1BB42D4BE3C30D50B68D7C41DB4DFCE9678E8EF8C539F6E6A9345048894FCC" {
-			blockInfoForFCC.BeforeBeginBlocker = reward.Amount
-			blockInfoForFCC.Denom = reward.Denom
-		}
-
-		if reward.Denom == "uosmo" {
-			blockInfosForUosmo.BeforeBeginBlocker = reward.Amount
-			blockInfosForUosmo.Denom = reward.Denom
-		}
-
-		if reward.Denom == "uion" {
-			blockInfosForUion.BeforeBeginBlocker = reward.Amount
-			blockInfosForUion.Denom = reward.Denom
-		}
-
-	}
-
 	BeginBlockForks(ctx, app)
-	responseBeginBlock := app.mm.BeginBlock(ctx, req)
-
-	totalRewardsAfter := app.DistrKeeper.GetTotalRewards(ctx)
-	for _, reward := range totalRewardsAfter {
-		if reward.Denom == "ibc/0EF15DF2F02480ADE0BB6E85D9EBB5DAEA2836D3860E9F97F9AADE4F57A31AA0" {
-			blockInfoForAA0.AfterBeginBlocker = reward.Amount
-			blockInfoForAA0.Denom = reward.Denom
-		}
-
-		if reward.Denom == "ibc/27394FB092D2ECCD56123C74F36E4C1F926001CEADA9CA97EA622B25F41E5EB2" {
-			blockInfoForEB2.AfterBeginBlocker = reward.Amount
-			blockInfoForEB2.Denom = reward.Denom
-		}
-
-		if reward.Denom == "ibc/4E5444C35610CC76FC94E7F7886B93121175C28262DDFDDE6F84E82BF2425452" {
-			blockInfoFor452.AfterBeginBlocker = reward.Amount
-			blockInfoFor452.Denom = reward.Denom
-		}
-
-		if reward.Denom == "ibc/BE1BB42D4BE3C30D50B68D7C41DB4DFCE9678E8EF8C539F6E6A9345048894FCC" {
-			blockInfoForFCC.AfterBeginBlocker = reward.Amount
-			blockInfoForFCC.Denom = reward.Denom
-		}
-
-		if reward.Denom == "uosmo" {
-			blockInfosForUosmo.AfterBeginBlocker = reward.Amount
-			blockInfosForUosmo.Denom = reward.Denom
-		}
-
-		if reward.Denom == "uion" {
-			blockInfosForUion.AfterBeginBlocker = reward.Amount
-			blockInfosForUion.Denom = reward.Denom
-		}
-	}
-
-	err := ApybaraDB.Transaction(func(tx *gorm.DB) error {
-		ApybaraIndexer.RewardDeltaForBlockers(ctx, blockInfoForAA0, tx)
-		ApybaraIndexer.RewardDeltaForBlockers(ctx, blockInfoForEB2, tx)
-		ApybaraIndexer.RewardDeltaForBlockers(ctx, blockInfoFor452, tx)
-		ApybaraIndexer.RewardDeltaForBlockers(ctx, blockInfoForFCC, tx)
-		ApybaraIndexer.RewardDeltaForBlockers(ctx, blockInfosForUosmo, tx)
-		ApybaraIndexer.RewardDeltaForBlockers(ctx, blockInfosForUion, tx)
-		return nil
-	})
-	if err != nil {
-		fmt.Println("Error in transaction: ", err.Error())
-	}
-
-	return responseBeginBlock
+	return app.mm.BeginBlock(ctx, req)
 }
 
 // EndBlocker application updates every end block.

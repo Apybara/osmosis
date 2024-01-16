@@ -6,8 +6,8 @@ import (
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
-	valPref "github.com/osmosis-labs/osmosis/v22/x/valset-pref"
-	"github.com/osmosis-labs/osmosis/v22/x/valset-pref/types"
+	valPref "github.com/osmosis-labs/osmosis/v21/x/valset-pref"
+	"github.com/osmosis-labs/osmosis/v21/x/valset-pref/types"
 )
 
 func (s *KeeperTestSuite) TestValidateLockForForceUnlock() {
@@ -26,7 +26,7 @@ func (s *KeeperTestSuite) TestValidateLockForForceUnlock() {
 			expectPass:    true,
 		},
 		{
-			name:          "lock Id does not match with delegator",
+			name:          "lock Id doesnot match with delegator",
 			lockID:        locks[0].ID,
 			delegatorAddr: "addr2---------------",
 			expectPass:    false,
@@ -433,7 +433,7 @@ func (s *KeeperTestSuite) TestGetValsetRatios() {
 						Weight:         sdk.OneDec(),
 					},
 				}
-			} else { // other cases, we assume we are using val set pref with multiple validators
+			} else { // other cases, we assume we are using val set pref with mutiple validators
 				valsetPrefs = []types.ValidatorPreference{
 					{
 						ValOperAddress: valAddrs[0],
@@ -498,7 +498,7 @@ func (s *KeeperTestSuite) TestIsPreferenceValid() {
 		expectPass       bool
 	}{
 		{
-			name: "Valid Preference: Check rounding",
+			name: "Valid Prefernce: Check rounding",
 			valSetPreference: []types.ValidatorPreference{
 				{
 					ValOperAddress: valAddrs[0],

@@ -47,7 +47,7 @@ func TestUpdateBaseFee(t *testing.T) {
 		// update base fee
 		eip.updateBaseFee(int64(i))
 
-		// calculate the base fees
+		// calcualte the base fees
 		expectedBaseFee := calculateBaseFee(eip.totalGasWantedThisBlock, baseFeeBeforeUpdate)
 
 		// Assert that the actual result matches the expected result

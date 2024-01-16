@@ -25,9 +25,9 @@ import (
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/osmosis/osmoutils/osmocli"
-	"github.com/osmosis-labs/osmosis/v22/x/gamm/pool-models/balancer"
-	"github.com/osmosis-labs/osmosis/v22/x/gamm/pool-models/stableswap"
-	"github.com/osmosis-labs/osmosis/v22/x/poolmanager/types"
+	"github.com/osmosis-labs/osmosis/v21/x/gamm/pool-models/balancer"
+	"github.com/osmosis-labs/osmosis/v21/x/gamm/pool-models/stableswap"
+	"github.com/osmosis-labs/osmosis/v21/x/poolmanager/types"
 )
 
 func NewTxCmd() *cobra.Command {
@@ -495,6 +495,9 @@ Ex) denom-pair-taker-fee-proposal uion,uosmo,0.0016,stake,uosmo,0.005,uatom,uosm
 			if err != nil {
 				return err
 			}
+			if err = proposalMsg.ValidateBasic(); err != nil {
+				return err
+			}
 
 			return tx.GenerateOrBroadcastTxCLI(clientCtx, cmd.Flags(), proposalMsg)
 		},
@@ -526,6 +529,10 @@ Ex) set-denom-pair-taker-fee uion,uosmo,0.0016,stake,uosmo,0.005,uatom,uosmo,0.0
 
 			msg, err := parseDenomPairTakerFeeArgToMsg(clientCtx, args[0])
 			if err != nil {
+				return err
+			}
+
+			if err = msg.ValidateBasic(); err != nil {
 				return err
 			}
 

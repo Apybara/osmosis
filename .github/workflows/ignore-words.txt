@@ -1,4 +1,0 @@
-compres
-startd
-ans
-crate

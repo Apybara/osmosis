@@ -21,15 +21,15 @@ import (
 	"github.com/osmosis-labs/osmosis/osmomath"
 	ibchookskeeper "github.com/osmosis-labs/osmosis/x/ibc-hooks/keeper"
 
-	ibcratelimittypes "github.com/osmosis-labs/osmosis/v22/x/ibc-rate-limit/types"
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v22/x/poolmanager/types"
+	ibcratelimittypes "github.com/osmosis-labs/osmosis/v21/x/ibc-rate-limit/types"
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v21/x/poolmanager/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/osmosis-labs/osmosis/osmoutils/osmoassert"
-	"github.com/osmosis-labs/osmosis/v22/tests/e2e/configurer/chain"
-	"github.com/osmosis-labs/osmosis/v22/tests/e2e/configurer/config"
-	"github.com/osmosis-labs/osmosis/v22/tests/e2e/initialization"
+	"github.com/osmosis-labs/osmosis/v21/tests/e2e/configurer/chain"
+	"github.com/osmosis-labs/osmosis/v21/tests/e2e/configurer/config"
+	"github.com/osmosis-labs/osmosis/v21/tests/e2e/initialization"
 )
 
 var (
@@ -42,16 +42,19 @@ var (
 func (s *IntegrationTestSuite) TestPrepE2E() {
 	// Reset the default taker fee to 0.15%, so we can actually run tests with it activated
 	s.T().Run("SetDefaultTakerFeeChainB", func(t *testing.T) {
+		t.Parallel()
 		s.T().Log("resetting the default taker fee to 0.15% on chain B only")
 		s.SetDefaultTakerFeeChainB()
 	})
 
 	s.T().Run("SetExpeditedVotingPeriodChainA", func(t *testing.T) {
+		t.Parallel()
 		s.T().Log("setting the expedited voting period to 7 seconds on chain A")
 		s.SetExpeditedVotingPeriodChainA()
 	})
 
 	s.T().Run("SetExpeditedVotingPeriodChainB", func(t *testing.T) {
+		t.Parallel()
 		s.T().Log("setting the expedited voting period to 7 seconds on chain B")
 		s.SetExpeditedVotingPeriodChainB()
 	})
@@ -61,38 +64,47 @@ func (s *IntegrationTestSuite) TestPrepE2E() {
 func (s *IntegrationTestSuite) TestStartE2E() {
 	// Zero Dependent Tests
 	s.T().Run("CreateConcentratedLiquidityPoolVoting_And_TWAP", func(t *testing.T) {
+		t.Parallel()
 		s.CreateConcentratedLiquidityPoolVoting_And_TWAP()
 	})
 
 	s.T().Run("ProtoRev", func(t *testing.T) {
+		t.Parallel()
 		s.ProtoRev()
 	})
 
 	s.T().Run("ConcentratedLiquidity", func(t *testing.T) {
+		t.Parallel()
 		s.ConcentratedLiquidity()
 	})
 
 	s.T().Run("SuperfluidVoting", func(t *testing.T) {
+		t.Parallel()
 		s.SuperfluidVoting()
 	})
 
 	s.T().Run("AddToExistingLock", func(t *testing.T) {
+		t.Parallel()
 		s.AddToExistingLock()
 	})
 
 	s.T().Run("ExpeditedProposals", func(t *testing.T) {
+		t.Parallel()
 		s.ExpeditedProposals()
 	})
 
 	s.T().Run("GeometricTWAP", func(t *testing.T) {
+		t.Parallel()
 		s.GeometricTWAP()
 	})
 
 	s.T().Run("LargeWasmUpload", func(t *testing.T) {
+		t.Parallel()
 		s.LargeWasmUpload()
 	})
 
 	s.T().Run("StableSwap", func(t *testing.T) {
+		t.Parallel()
 		s.StableSwap()
 	})
 
@@ -108,6 +120,7 @@ func (s *IntegrationTestSuite) TestStartE2E() {
 		s.T().Skip()
 	} else {
 		s.T().Run("StateSync", func(t *testing.T) {
+			t.Parallel()
 			s.StateSync()
 		})
 	}
@@ -118,6 +131,7 @@ func (s *IntegrationTestSuite) TestStartE2E() {
 		s.T().Skip("Skipping GeometricTwapMigration test")
 	} else {
 		s.T().Run("GeometricTwapMigration", func(t *testing.T) {
+			t.Parallel()
 			s.GeometricTwapMigration()
 		})
 	}
@@ -126,6 +140,7 @@ func (s *IntegrationTestSuite) TestStartE2E() {
 		s.T().Skip("Skipping AddToExistingLockPostUpgrade test")
 	} else {
 		s.T().Run("AddToExistingLockPostUpgrade", func(t *testing.T) {
+			t.Parallel()
 			s.AddToExistingLockPostUpgrade()
 		})
 	}
@@ -136,18 +151,22 @@ func (s *IntegrationTestSuite) TestStartE2E() {
 		s.T().Skip("Skipping IBC tests")
 	} else {
 		s.T().Run("IBCTokenTransferRateLimiting", func(t *testing.T) {
+			t.Parallel()
 			s.IBCTokenTransferRateLimiting()
 		})
 
 		s.T().Run("IBCTokenTransferAndCreatePool", func(t *testing.T) {
+			t.Parallel()
 			s.IBCTokenTransferAndCreatePool()
 		})
 
 		s.T().Run("IBCWasmHooks", func(t *testing.T) {
+			t.Parallel()
 			s.IBCWasmHooks()
 		})
 
 		s.T().Run("PacketForwarding", func(t *testing.T) {
+			t.Parallel()
 			s.PacketForwarding()
 		})
 	}
@@ -215,7 +234,7 @@ func (s *IntegrationTestSuite) ProtoRev() {
 	swapPoolId2 := chainANode.CreateBalancerPool(poolFile2, initialization.ValidatorWalletName)
 	swapPoolId3 := chainANode.CreateBalancerPool(poolFile3, initialization.ValidatorWalletName)
 
-	// Wait for the creation to be propagated to the other nodes + for the protorev module to
+	// Wait for the creation to be propogated to the other nodes + for the protorev module to
 	// correctly update the highest liquidity pools.
 	s.T().Logf("waiting for the protorev module to update the highest liquidity pools (wait %.f sec) after the week epoch duration", initialization.EpochDayDuration.Seconds())
 	chainA.WaitForNumEpochs(1, epochIdentifier)
@@ -298,7 +317,7 @@ func (s *IntegrationTestSuite) StableSwap() {
 // TestGeometricTwapMigration tests that the geometric twap record
 // migration runs successfully. It does so by attempting to execute
 // the swap on the pool created pre-upgrade. When a pool is created
-// pre-upgrade, twap records are initialized for a pool. By running
+// pre-upgrade, twap records are initialized for a pool. By runnning
 // a swap post-upgrade, we confirm that the geometric twap was initialized
 // correctly and does not cause a chain halt. This test was created
 // in-response to a testnet incident when performing the geometric twap
@@ -938,7 +957,7 @@ func (s *IntegrationTestSuite) GeometricTWAP() {
 	s.T().Log("querying for the first geometric TWAP to now (before swap)")
 	// Assume base = uosmo, quote = stake
 	// At pool creation time, the twap should be:
-	// quote asset supply / base asset supply = 2_000_000 / 1_000_000 = 2
+	// quote assset supply / base asset supply = 2_000_000 / 1_000_000 = 2
 	curBlockTime := chainANode.QueryLatestBlockTime().Unix()
 	s.T().Log("geometric twap, end time ", curBlockTime)
 
@@ -948,7 +967,7 @@ func (s *IntegrationTestSuite) GeometricTWAP() {
 
 	// Assume base = stake, quote = uosmo
 	// At pool creation time, the twap should be:
-	// quote asset supply / base asset supply = 1_000_000 / 2_000_000 = 0.5
+	// quote assset supply / base asset supply = 1_000_000 / 2_000_000 = 0.5
 	initialTwapAOverB, err := chainANode.QueryGeometricTwapToNow(poolId, denomB, denomA, timeBeforeSwapPlus5ms)
 	s.Require().NoError(err)
 	s.Require().Equal(osmomath.NewDecWithPrec(5, 1), initialTwapAOverB)
@@ -982,12 +1001,12 @@ func (s *IntegrationTestSuite) GeometricTWAP() {
 
 	// Assume base = uosmo, quote = stake
 	// At pool creation, we had:
-	// quote asset supply / base asset supply = 2_000_000 / 1_000_000 = 2
+	// quote assset supply / base asset supply = 2_000_000 / 1_000_000 = 2
 	// Next, we swapped 1_000_000 uosmo for stake.
 	// Now, we roughly have
 	// uatom = 1_000_000
 	// uosmo = 2_000_000
-	// quote asset supply / base asset supply = 1_000_000 / 2_000_000 = 0.5
+	// quote assset supply / base asset supply = 1_000_000 / 2_000_000 = 0.5
 	osmoassert.DecApproxEq(s.T(), osmomath.NewDecWithPrec(5, 1), afterSwapTwapBOverA, osmomath.NewDecWithPrec(1, 2))
 }
 

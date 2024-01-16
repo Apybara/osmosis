@@ -9,10 +9,10 @@ import (
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/osmosis/osmoutils/accum"
-	cl "github.com/osmosis-labs/osmosis/v22/x/concentrated-liquidity"
-	"github.com/osmosis-labs/osmosis/v22/x/concentrated-liquidity/model"
-	"github.com/osmosis-labs/osmosis/v22/x/concentrated-liquidity/types"
-	"github.com/osmosis-labs/osmosis/v22/x/concentrated-liquidity/types/genesis"
+	cl "github.com/osmosis-labs/osmosis/v21/x/concentrated-liquidity"
+	"github.com/osmosis-labs/osmosis/v21/x/concentrated-liquidity/model"
+	"github.com/osmosis-labs/osmosis/v21/x/concentrated-liquidity/types"
+	"github.com/osmosis-labs/osmosis/v21/x/concentrated-liquidity/types/genesis"
 )
 
 const validPoolId = 1
@@ -306,7 +306,7 @@ func (s *KeeperTestSuite) TestInitOrUpdateTick() {
 				preexistingLiquidity = DefaultLiquidityAmt
 			}
 
-			// if this param is set to true, we manually set the tick liquidity net value to default liquidity amount
+			// if this param is set to true, we manually set the tick liquidity net value ot default liquidity amount
 			// for testing purpose.
 			if test.param.initLiquidityNet {
 				tickInfoBefore, err := s.App.ConcentratedLiquidityKeeper.GetTickInfo(s.Ctx, 1, test.param.tickIndex)

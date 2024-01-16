@@ -11,12 +11,12 @@ import (
 	"github.com/osmosis-labs/osmosis/osmoutils"
 	"github.com/osmosis-labs/osmosis/osmoutils/accum"
 	"github.com/osmosis-labs/osmosis/osmoutils/osmoassert"
-	"github.com/osmosis-labs/osmosis/v22/app/apptesting"
-	cl "github.com/osmosis-labs/osmosis/v22/x/concentrated-liquidity"
-	"github.com/osmosis-labs/osmosis/v22/x/concentrated-liquidity/math"
-	"github.com/osmosis-labs/osmosis/v22/x/concentrated-liquidity/model"
-	"github.com/osmosis-labs/osmosis/v22/x/concentrated-liquidity/types"
-	cltypes "github.com/osmosis-labs/osmosis/v22/x/concentrated-liquidity/types"
+	"github.com/osmosis-labs/osmosis/v21/app/apptesting"
+	cl "github.com/osmosis-labs/osmosis/v21/x/concentrated-liquidity"
+	"github.com/osmosis-labs/osmosis/v21/x/concentrated-liquidity/math"
+	"github.com/osmosis-labs/osmosis/v21/x/concentrated-liquidity/model"
+	"github.com/osmosis-labs/osmosis/v21/x/concentrated-liquidity/types"
+	cltypes "github.com/osmosis-labs/osmosis/v21/x/concentrated-liquidity/types"
 )
 
 const (
@@ -1338,7 +1338,7 @@ func (s *KeeperTestSuite) TestPositionHasActiveUnderlyingLockAndUpdate() {
 			expectedHasActiveLockAfterTimeUpdate:        true, // since lock is locked, it remains active after time update
 			expectedLockError:                           false,
 			expectedPositionLockID:                      1,
-			expectedPositionLockIDAfterTimeUpdate:       1, // since it stays locked, the mutative method won't change the underlying lock ID
+			expectedPositionLockIDAfterTimeUpdate:       1, // since it stays locked, the mutative method wont change the underlying lock ID
 			expectedGetPositionLockIdErr:                false,
 			expectedGetPositionLockIdErrAfterTimeUpdate: false,
 		},
@@ -2105,7 +2105,7 @@ func (s *KeeperTestSuite) TestNegativeTickRange_SpreadFactor() {
 	// Update expected incentive rewards
 	expectedTotalIncentiveRewards = expectedTotalIncentiveRewards.Add(rewardsPerSecond)
 
-	// This previously panicked due to the lack of support for negative range accumulators.
+	// This previously paniced due to the lack of support for negative range accumulators.
 	// See issue: https://github.com/osmosis-labs/osmosis/issues/5854
 	// We initialized the lower tick's accumulator (DefaultCurrTick - 25) to be greater than the upper tick's accumulator (DefaultCurrTick + 50)
 	// Whenever the current tick is above the position's range, we compute in range accumulator as upper tick accumulator - lower tick accumulator

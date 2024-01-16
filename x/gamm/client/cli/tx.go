@@ -14,11 +14,11 @@ import (
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/osmosis/osmoutils/osmocli"
-	"github.com/osmosis-labs/osmosis/v22/x/gamm/pool-models/balancer"
-	"github.com/osmosis-labs/osmosis/v22/x/gamm/pool-models/stableswap"
-	"github.com/osmosis-labs/osmosis/v22/x/gamm/types"
-	gammmigration "github.com/osmosis-labs/osmosis/v22/x/gamm/types/migration"
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v22/x/poolmanager/types"
+	"github.com/osmosis-labs/osmosis/v21/x/gamm/pool-models/balancer"
+	"github.com/osmosis-labs/osmosis/v21/x/gamm/pool-models/stableswap"
+	"github.com/osmosis-labs/osmosis/v21/x/gamm/types"
+	gammmigration "github.com/osmosis-labs/osmosis/v21/x/gamm/types/migration"
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v21/x/poolmanager/types"
 
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/tx"
@@ -221,6 +221,9 @@ Ex) 2,4,1,5 -> [(Balancer 2, CL 4), (Balancer 1, CL 5)]
 			if err != nil {
 				return err
 			}
+			if err = proposalMsg.ValidateBasic(); err != nil {
+				return err
+			}
 
 			return tx.GenerateOrBroadcastTxCLI(clientCtx, cmd.Flags(), proposalMsg)
 		},
@@ -265,6 +268,9 @@ Ex) 2,4,1,5 -> [(Balancer 2, CL 4), (Balancer 1, CL 5)]
 			if err != nil {
 				return err
 			}
+			if err = proposalMsg.ValidateBasic(); err != nil {
+				return err
+			}
 
 			return tx.GenerateOrBroadcastTxCLI(clientCtx, cmd.Flags(), proposalMsg)
 		},
@@ -302,6 +308,9 @@ func NewCmdSubmitCreateCLPoolAndLinkToCFMMProposal() *cobra.Command {
 
 			proposalMsg, err := v1.NewMsgSubmitProposal([]sdk.Msg{msg}, deposit, clientCtx.GetFromAddress().String(), "", proposalTitle, summary, isExpedited)
 			if err != nil {
+				return err
+			}
+			if err = proposalMsg.ValidateBasic(); err != nil {
 				return err
 			}
 
@@ -361,6 +370,9 @@ Sample proposal with flags
 
 			proposalMsg, err := v1.NewMsgSubmitProposal([]sdk.Msg{msg}, deposit, clientCtx.GetFromAddress().String(), "", proposalTitle, summary, isExpedited)
 			if err != nil {
+				return err
+			}
+			if err = proposalMsg.ValidateBasic(); err != nil {
 				return err
 			}
 

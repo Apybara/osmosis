@@ -253,15 +253,6 @@ func (d BigDec) BigInt() *big.Int {
 	return cp.Set(d.i)
 }
 
-// BigIntMut returns the pointer of the underlying big.Int.
-func (d BigDec) BigIntMut() *big.Int {
-	if d.IsNil() {
-		return nil
-	}
-
-	return d.i
-}
-
 // addition
 func (d BigDec) Add(d2 BigDec) BigDec {
 	copy := d.Clone()
@@ -289,11 +280,6 @@ func (d BigDec) Sub(d2 BigDec) BigDec {
 	}
 	return BigDec{res}
 }
-
-func (d BigDec) NegMut() BigDec {
-	d.i.Neg(d.i)
-	return d
-} // reverse the decimal sign
 
 // Clone performs a deep copy of the receiver
 // and returns the new result.
@@ -832,7 +818,7 @@ func (d BigDec) TruncateDec() BigDec {
 	return NewBigDecFromBigInt(chopPrecisionAndTruncate(d.i))
 }
 
-// Ceil returns the smallest integer value (as a decimal) that is greater than
+// Ceil returns the smallest interger value (as a decimal) that is greater than
 // or equal to the given decimal.
 func (d BigDec) Ceil() BigDec {
 	tmp := new(big.Int).Set(d.i)

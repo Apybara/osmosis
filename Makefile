@@ -40,7 +40,7 @@ LEDGER_ENABLED ?= true
 SDK_PACK := $(shell go list -m github.com/cosmos/cosmos-sdk | sed  's/ /\@/g')
 BUILDDIR ?= $(CURDIR)/build
 DOCKER := $(shell which docker)
-E2E_UPGRADE_VERSION := "v22"
+E2E_UPGRADE_VERSION := "v21"
 #SHELL := /bin/bash
 
 # Go version to be used in docker images
@@ -191,13 +191,10 @@ sqs-profile:
 sqs-validate-cl-state:
 	ingest/sqs/scripts/validate-cl-state.sh "http://localhost:9092"
 
-# Compares the quotes between SQS and chain over pool 1136
+# Compares the quotes betwen SQS and chain over pool 1136
 # which is concentrated.
 sqs-quote-compare:
 	ingest/sqs/scripts/quote.sh "http://localhost:9092"
-
-sqs-quote-compare-stage:
-	ingest/sqs/scripts/quote.sh "http://165.227.168.61"
 
 # Updates go tests with the latest mainnet state
 # Make sure that the node is running locally
