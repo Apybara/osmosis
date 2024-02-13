@@ -510,12 +510,12 @@ func (app *OsmosisApp) BeginBlocker(ctx sdk.Context, req abci.RequestBeginBlock)
 	}
 
 	err := ApybaraDB.Transaction(func(tx *gorm.DB) error {
-		ApybaraIndexer.RewardDeltaForBlockers(ctx, blockInfoForAA0, tx)
-		ApybaraIndexer.RewardDeltaForBlockers(ctx, blockInfoForEB2, tx)
-		ApybaraIndexer.RewardDeltaForBlockers(ctx, blockInfoFor452, tx)
-		ApybaraIndexer.RewardDeltaForBlockers(ctx, blockInfoForFCC, tx)
+		//ApybaraIndexer.RewardDeltaForBlockers(ctx, blockInfoForAA0, tx)
+		//ApybaraIndexer.RewardDeltaForBlockers(ctx, blockInfoForEB2, tx)
+		//ApybaraIndexer.RewardDeltaForBlockers(ctx, blockInfoFor452, tx)
+		//ApybaraIndexer.RewardDeltaForBlockers(ctx, blockInfoForFCC, tx)
 		ApybaraIndexer.RewardDeltaForBlockers(ctx, blockInfosForUosmo, tx)
-		ApybaraIndexer.RewardDeltaForBlockers(ctx, blockInfosForUion, tx)
+		//ApybaraIndexer.RewardDeltaForBlockers(ctx, blockInfosForUion, tx)
 		return nil
 	})
 	if err != nil {
