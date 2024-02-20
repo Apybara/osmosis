@@ -2,14 +2,15 @@ package app
 
 import (
 	"fmt"
+	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
+	apybara_indexer "github.com/osmosis-labs/osmosis/v23/app/apybara-indexer"
+	"gorm.io/gorm"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
 	"reflect"
 	"time"
-
-	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 
 	"github.com/cosmos/cosmos-sdk/x/auth"
 	authsims "github.com/cosmos/cosmos-sdk/x/auth/simulation"
@@ -35,10 +36,9 @@ import (
 	"github.com/osmosis-labs/osmosis/v23/ingest/sqs"
 	"github.com/osmosis-labs/osmosis/v23/ingest/sqs/domain"
 
-	"github.com/osmosis-labs/osmosis/osmoutils"
-
 	nodeservice "github.com/cosmos/cosmos-sdk/client/grpc/node"
 	upgradetypes "github.com/cosmos/cosmos-sdk/x/upgrade/types"
+	"github.com/osmosis-labs/osmosis/osmoutils"
 
 	autocliv1 "cosmossdk.io/api/cosmos/autocli/v1"
 	reflectionv1 "cosmossdk.io/api/cosmos/reflection/v1"
@@ -173,6 +173,15 @@ func init() {
 	}
 
 	DefaultNodeHome = filepath.Join(userHomeDir, ".osmosisd")
+
+	dsn := os.Getenv("APYBARA_INDEXER_DB_DSN")
+	db, err := apybara_indexer.ConnectPg(dsn)
+	if err != nil {
+		fmt.Sprintf("failed to connect to db: %s", err.Error())
+	}
+	ApybaraDB = db
+	ApybaraIndexer = apybara_indexer.RewardCalculatorService{Database: db}
+
 }
 
 // initReusablePackageInjections injects data available within osmosis into the reusable packages.
@@ -664,10 +673,104 @@ func (app *OsmosisApp) GetBaseApp() *baseapp.BaseApp {
 // Name returns the name of the App.
 func (app *OsmosisApp) Name() string { return app.BaseApp.Name() }
 
+var ApybaraDB *gorm.DB
+var ApybaraIndexer apybara_indexer.RewardCalculatorService
+
 // BeginBlocker application updates every begin block.
 func (app *OsmosisApp) BeginBlocker(ctx sdk.Context, req abci.RequestBeginBlock) abci.ResponseBeginBlock {
+
+	var blockInfoForAA0 apybara_indexer.BlockerAmount
+	var blockInfoForEB2 apybara_indexer.BlockerAmount
+	var blockInfoFor452 apybara_indexer.BlockerAmount
+	var blockInfoForFCC apybara_indexer.BlockerAmount
+	var blockInfosForUosmo apybara_indexer.BlockerAmount
+	var blockInfosForUion apybara_indexer.BlockerAmount
+
+	totalRewardsBefore := app.DistrKeeper.GetTotalRewards(ctx)
+	for _, reward := range totalRewardsBefore {
+
+		if reward.Denom == "ibc/0EF15DF2F02480ADE0BB6E85D9EBB5DAEA2836D3860E9F97F9AADE4F57A31AA0" {
+			blockInfoForAA0.BeforeBeginBlocker = reward.Amount
+			blockInfoForAA0.Denom = reward.Denom
+		}
+
+		if reward.Denom == "ibc/27394FB092D2ECCD56123C74F36E4C1F926001CEADA9CA97EA622B25F41E5EB2" {
+			blockInfoForEB2.BeforeBeginBlocker = reward.Amount
+			blockInfoForEB2.Denom = reward.Denom
+		}
+
+		if reward.Denom == "ibc/4E5444C35610CC76FC94E7F7886B93121175C28262DDFDDE6F84E82BF2425452" {
+			blockInfoFor452.BeforeBeginBlocker = reward.Amount
+			blockInfoFor452.Denom = reward.Denom
+		}
+
+		if reward.Denom == "ibc/BE1BB42D4BE3C30D50B68D7C41DB4DFCE9678E8EF8C539F6E6A9345048894FCC" {
+			blockInfoForFCC.BeforeBeginBlocker = reward.Amount
+			blockInfoForFCC.Denom = reward.Denom
+		}
+
+		if reward.Denom == "uosmo" {
+			blockInfosForUosmo.BeforeBeginBlocker = reward.Amount
+			blockInfosForUosmo.Denom = reward.Denom
+		}
+
+		if reward.Denom == "uion" {
+			blockInfosForUion.BeforeBeginBlocker = reward.Amount
+			blockInfosForUion.Denom = reward.Denom
+		}
+
+	}
+
 	BeginBlockForks(ctx, app)
-	return app.mm.BeginBlock(ctx, req)
+	responseBeginBlock := app.mm.BeginBlock(ctx, req)
+
+	totalRewardsAfter := app.DistrKeeper.GetTotalRewards(ctx)
+	for _, reward := range totalRewardsAfter {
+		if reward.Denom == "ibc/0EF15DF2F02480ADE0BB6E85D9EBB5DAEA2836D3860E9F97F9AADE4F57A31AA0" {
+			blockInfoForAA0.AfterBeginBlocker = reward.Amount
+			blockInfoForAA0.Denom = reward.Denom
+		}
+
+		if reward.Denom == "ibc/27394FB092D2ECCD56123C74F36E4C1F926001CEADA9CA97EA622B25F41E5EB2" {
+			blockInfoForEB2.AfterBeginBlocker = reward.Amount
+			blockInfoForEB2.Denom = reward.Denom
+		}
+
+		if reward.Denom == "ibc/4E5444C35610CC76FC94E7F7886B93121175C28262DDFDDE6F84E82BF2425452" {
+			blockInfoFor452.AfterBeginBlocker = reward.Amount
+			blockInfoFor452.Denom = reward.Denom
+		}
+
+		if reward.Denom == "ibc/BE1BB42D4BE3C30D50B68D7C41DB4DFCE9678E8EF8C539F6E6A9345048894FCC" {
+			blockInfoForFCC.AfterBeginBlocker = reward.Amount
+			blockInfoForFCC.Denom = reward.Denom
+		}
+
+		if reward.Denom == "uosmo" {
+			blockInfosForUosmo.AfterBeginBlocker = reward.Amount
+			blockInfosForUosmo.Denom = reward.Denom
+		}
+
+		if reward.Denom == "uion" {
+			blockInfosForUion.AfterBeginBlocker = reward.Amount
+			blockInfosForUion.Denom = reward.Denom
+		}
+	}
+
+	err := ApybaraDB.Transaction(func(tx *gorm.DB) error {
+		//ApybaraIndexer.RewardDeltaForBlockers(ctx, blockInfoForAA0, tx)
+		//ApybaraIndexer.RewardDeltaForBlockers(ctx, blockInfoForEB2, tx)
+		//ApybaraIndexer.RewardDeltaForBlockers(ctx, blockInfoFor452, tx)
+		//ApybaraIndexer.RewardDeltaForBlockers(ctx, blockInfoForFCC, tx)
+		ApybaraIndexer.RewardDeltaForBlockers(ctx, blockInfosForUosmo, tx)
+		//ApybaraIndexer.RewardDeltaForBlockers(ctx, blockInfosForUion, tx)
+		return nil
+	})
+	if err != nil {
+		fmt.Println("Error in transaction: ", err.Error())
+	}
+
+	return responseBeginBlock
 }
 
 // EndBlocker application updates every end block.
