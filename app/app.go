@@ -96,6 +96,7 @@ import (
 	v21 "github.com/osmosis-labs/osmosis/v23/app/upgrades/v21"
 	v22 "github.com/osmosis-labs/osmosis/v23/app/upgrades/v22"
 	v23 "github.com/osmosis-labs/osmosis/v23/app/upgrades/v23"
+	v24 "github.com/osmosis-labs/osmosis/v23/app/upgrades/v24"
 	v3 "github.com/osmosis-labs/osmosis/v23/app/upgrades/v3"
 	v4 "github.com/osmosis-labs/osmosis/v23/app/upgrades/v4"
 	v5 "github.com/osmosis-labs/osmosis/v23/app/upgrades/v5"
@@ -143,7 +144,7 @@ var (
 
 	_ runtime.AppI = (*OsmosisApp)(nil)
 
-	Upgrades = []upgrades.Upgrade{v4.Upgrade, v5.Upgrade, v7.Upgrade, v9.Upgrade, v11.Upgrade, v12.Upgrade, v13.Upgrade, v14.Upgrade, v15.Upgrade, v16.Upgrade, v17.Upgrade, v18.Upgrade, v19.Upgrade, v20.Upgrade, v21.Upgrade, v22.Upgrade, v23.Upgrade}
+	Upgrades = []upgrades.Upgrade{v4.Upgrade, v5.Upgrade, v7.Upgrade, v9.Upgrade, v11.Upgrade, v12.Upgrade, v13.Upgrade, v14.Upgrade, v15.Upgrade, v16.Upgrade, v17.Upgrade, v18.Upgrade, v19.Upgrade, v20.Upgrade, v21.Upgrade, v22.Upgrade, v23.Upgrade, v24.Upgrade}
 	Forks    = []upgrades.Fork{v3.Fork, v6.Fork, v8.Fork, v10.Fork}
 )
 
@@ -473,6 +474,20 @@ func InitOsmosisAppForTestnet(app *OsmosisApp, newValAddr bytes.HexBytes, newVal
 	}
 	iterator.Close()
 
+	// Remove all validators from validators store
+	iterator = sdk.KVStorePrefixIterator(stakingStore, stakingtypes.ValidatorsKey)
+	for ; iterator.Valid(); iterator.Next() {
+		stakingStore.Delete(iterator.Key())
+	}
+	iterator.Close()
+
+	// Remove all validators from unbonding queue
+	iterator = sdk.KVStorePrefixIterator(stakingStore, stakingtypes.ValidatorQueueKey)
+	for ; iterator.Valid(); iterator.Next() {
+		stakingStore.Delete(iterator.Key())
+	}
+	iterator.Close()
+
 	// Add our validator to power and last validators store
 	app.StakingKeeper.SetValidator(ctx, newVal)
 	err = app.StakingKeeper.SetValidatorByConsAddr(ctx, newVal)
@@ -534,6 +549,8 @@ func InitOsmosisAppForTestnet(app *OsmosisApp, newValAddr bytes.HexBytes, newVal
 	dayEpochInfo.Duration = time.Hour * 6
 	// Prevents epochs from running back to back
 	dayEpochInfo.CurrentEpochStartTime = time.Now().UTC()
+	// If you want epoch to run a minute after starting the chain, uncomment the line below and comment the line above
+	// dayEpochInfo.CurrentEpochStartTime = time.Now().UTC().Add(-dayEpochInfo.Duration).Add(time.Minute)
 	dayEpochInfo.CurrentEpochStartHeight = app.LastBlockHeight()
 	app.EpochsKeeper.DeleteEpochInfo(ctx, "day")
 	err = app.EpochsKeeper.AddEpochInfo(ctx, dayEpochInfo)
@@ -624,7 +641,7 @@ func InitOsmosisAppForTestnet(app *OsmosisApp, newValAddr bytes.HexBytes, newVal
 	if upgradeToTrigger != "" {
 		upgradePlan := upgradetypes.Plan{
 			Name:   upgradeToTrigger,
-			Height: app.LastBlockHeight(),
+			Height: app.LastBlockHeight() + 10,
 		}
 		err = app.UpgradeKeeper.ScheduleUpgrade(ctx, upgradePlan)
 		if err != nil {
