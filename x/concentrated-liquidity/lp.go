@@ -478,21 +478,14 @@ func (k Keeper) UpdatePosition(ctx sdk.Context, poolId uint64, owner sdk.AccAddr
 		return types.UpdatePositionData{}, err
 	}
 
-	pool, err := k.getPoolById(ctx, poolId)
-	if err != nil {
-		return types.UpdatePositionData{}, err
-	}
-
-	currentTick := pool.GetCurrentTick()
-
 	// update lower tickInfo state
-	lowerTickIsEmpty, err := k.initOrUpdateTick(ctx, poolId, currentTick, lowerTick, liquidityDelta, false)
+	lowerTickIsEmpty, err := k.initOrUpdateTick(ctx, poolId, lowerTick, liquidityDelta, false)
 	if err != nil {
 		return types.UpdatePositionData{}, err
 	}
 
 	// update upper tickInfo state
-	upperTickIsEmpty, err := k.initOrUpdateTick(ctx, poolId, currentTick, upperTick, liquidityDelta, true)
+	upperTickIsEmpty, err := k.initOrUpdateTick(ctx, poolId, upperTick, liquidityDelta, true)
 	if err != nil {
 		return types.UpdatePositionData{}, err
 	}
@@ -505,7 +498,7 @@ func (k Keeper) UpdatePosition(ctx sdk.Context, poolId uint64, owner sdk.AccAddr
 
 	// Refetch pool to get the updated pool.
 	// Note that updateUptimeAccumulatorsToNow may modify the pool state and rewrite it to the store.
-	pool, err = k.getPoolById(ctx, poolId)
+	pool, err := k.getPoolById(ctx, poolId)
 	if err != nil {
 		return types.UpdatePositionData{}, err
 	}
@@ -569,11 +562,12 @@ func (k Keeper) initializeInitialPositionForPool(ctx sdk.Context, pool types.Con
 	if err != nil {
 		return err
 	}
+	initialCurSqrtPriceBigDec := osmomath.BigDecFromDecMut(initialCurSqrtPrice)
 
 	// Calculate the initial tick from the initial spot price
 	// We round down here so that the tick is rounded to
 	// the nearest possible value given the tick spacing.
-	initialTick, err := math.SqrtPriceToTickRoundDownSpacing(osmomath.BigDecFromDec(initialCurSqrtPrice), pool.GetTickSpacing())
+	initialTick, err := math.SqrtPriceToTickRoundDownSpacing(initialCurSqrtPriceBigDec, pool.GetTickSpacing())
 	if err != nil {
 		return err
 	}
@@ -585,7 +579,7 @@ func (k Keeper) initializeInitialPositionForPool(ctx sdk.Context, pool types.Con
 	// However, there are ticks only at 100_000_000 X/Y and 100_000_100 X/Y.
 	// In such a case, we do not want to round the sqrt price to 100_000_000 X/Y, but rather
 	// let it float within the possible tick range.
-	pool.SetCurrentSqrtPrice(osmomath.BigDecFromDec(initialCurSqrtPrice))
+	pool.SetCurrentSqrtPrice(initialCurSqrtPriceBigDec)
 	pool.SetCurrentTick(initialTick)
 	err = k.setPool(ctx, pool)
 	if err != nil {
