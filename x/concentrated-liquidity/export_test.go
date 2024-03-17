@@ -44,7 +44,7 @@ func (k Keeper) GetPoolById(ctx sdk.Context, poolId uint64) (types.ConcentratedP
 	return k.getPoolById(ctx, poolId)
 }
 
-func (k Keeper) CrossTick(ctx sdk.Context, poolId uint64, tickIndex int64, nextTickInfo *model.TickInfo, swapStateSpreadRewardGrowth sdk.DecCoin, spreadRewardAccumValue sdk.DecCoins, uptimeAccums []*accum.AccumulatorObject) (liquidityDelta osmomath.Dec, err error) {
+func (k Keeper) CrossTick(ctx sdk.Context, poolId uint64, tickIndex int64, nextTickInfo *model.TickInfo, swapStateSpreadRewardGrowth sdk.DecCoin, spreadRewardAccumValue sdk.DecCoins, uptimeAccums []*accum.AccumulatorObject) (err error) {
 	return k.crossTick(ctx, poolId, tickIndex, nextTickInfo, swapStateSpreadRewardGrowth, spreadRewardAccumValue, uptimeAccums)
 }
 
@@ -70,9 +70,9 @@ func (k Keeper) ComputeOutAmtGivenIn(
 	tokenOutDenom string,
 	spreadFactor osmomath.Dec,
 	priceLimit osmomath.BigDec,
-
+	updateAccumulators bool,
 ) (swapResult SwapResult, poolUpdates PoolUpdates, err error) {
-	return k.computeOutAmtGivenIn(ctx, poolId, tokenInMin, tokenOutDenom, spreadFactor, priceLimit)
+	return k.computeOutAmtGivenIn(ctx, poolId, tokenInMin, tokenOutDenom, spreadFactor, priceLimit, updateAccumulators)
 }
 
 func (k Keeper) SwapInAmtGivenOut(
@@ -93,9 +93,9 @@ func (k Keeper) ComputeInAmtGivenOut(
 	spreadFactor osmomath.Dec,
 	priceLimit osmomath.BigDec,
 	poolId uint64,
-
+	updateAccumulators bool,
 ) (swapResult SwapResult, poolUpdates PoolUpdates, err error) {
-	return k.computeInAmtGivenOut(ctx, desiredTokenOut, tokenInDenom, spreadFactor, priceLimit, poolId)
+	return k.computeInAmtGivenOut(ctx, desiredTokenOut, tokenInDenom, spreadFactor, priceLimit, poolId, updateAccumulators)
 }
 
 func (k Keeper) InitOrUpdateTick(ctx sdk.Context, poolId uint64, tickIndex int64, liquidityIn osmomath.Dec, upper bool) (tickIsEmpty bool, err error) {
