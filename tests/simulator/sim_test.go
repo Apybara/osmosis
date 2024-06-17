@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
-	osmosim "github.com/osmosis-labs/osmosis/v23/simulation/executor"
-	txfeetypes "github.com/osmosis-labs/osmosis/v23/x/txfees/types"
+	osmosim "github.com/osmosis-labs/osmosis/v25/simulation/executor"
+	txfeetypes "github.com/osmosis-labs/osmosis/v25/x/txfees/types"
 )
 
 const SimAppChainID = "simulation-app"
@@ -25,7 +25,8 @@ func BenchmarkFullAppSimulation(b *testing.B) {
 	fullAppSimulation(b, false)
 }
 
-// UNFORKINGNOTE: Disabling simulator for now as discussed
+// TODO: Disabling simulator for now as discussed, stopped working after v0.47 upgrade.
+// SDK team is working on a more user friendly simulation package AFAIK.
 // func TestFullAppSimulation(t *testing.T) {
 // 	// -Enabled=true -NumBlocks=1000 -BlockSize=200 \
 // 	// -Period=1 -Commit=true -Seed=57 -v -timeout 24h
@@ -44,7 +45,7 @@ func fullAppSimulation(tb testing.TB, is_testing bool) {
 	tb.Helper()
 	// TODO: Get SDK simulator fixed to have min fees possible
 	txfeetypes.ConsensusMinFee = osmomath.ZeroDec()
-	config, db, logger, cleanup, err := osmosim.SetupSimulation("goleveldb-app-sim", "Simulation")
+	config, db, logger, cleanup, err := osmosim.SetupSimulation(tb, "goleveldb-app-sim", "Simulation")
 	if err != nil {
 		tb.Fatalf("simulation setup failed: %s", err.Error())
 	}
@@ -72,7 +73,8 @@ func fullAppSimulation(tb testing.TB, is_testing bool) {
 	}
 }
 
-// UNFORKINGNOTE: Disabling simulator for now as discussed
+// TODO: Disabling simulator for now as discussed, stopped working after v0.47 upgrade.
+// SDK team is working on a more user friendly simulation package AFAIK.
 //
 // // TODO: Make another test for the fuzzer itself, which just has noOp txs
 // // and doesn't depend on the application.

@@ -9,10 +9,11 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
-	sdkrand "github.com/osmosis-labs/osmosis/v23/simulation/simtypes/random"
-	"github.com/osmosis-labs/osmosis/v23/x/gamm/pool-models/balancer"
-	"github.com/osmosis-labs/osmosis/v23/x/twap"
-	"github.com/osmosis-labs/osmosis/v23/x/twap/types"
+	sdkrand "github.com/osmosis-labs/osmosis/v25/simulation/simtypes/random"
+	"github.com/osmosis-labs/osmosis/v25/x/gamm/pool-models/balancer"
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v25/x/poolmanager/types"
+	"github.com/osmosis-labs/osmosis/v25/x/twap"
+	"github.com/osmosis-labs/osmosis/v25/x/twap/types"
 )
 
 var (
@@ -27,6 +28,19 @@ var (
 
 	// base record is a record with t=baseTime, sp0=10(sp1=0.1) accumulators set to 0
 	baseRecord types.TwapRecord = newTwoAssetPoolTwapRecordWithDefaults(baseTime, osmomath.NewDec(10), osmomath.ZeroDec(), osmomath.ZeroDec(), osmomath.ZeroDec())
+
+	poolTwoRecord types.TwapRecord = types.TwapRecord{
+		PoolId:      2,
+		Time:        baseTime,
+		Asset0Denom: denom1,
+		Asset1Denom: denom2,
+
+		P0LastSpotPrice:             osmomath.NewDec(5),
+		P1LastSpotPrice:             osmomath.OneDec().Quo(osmomath.NewDec(5)),
+		P0ArithmeticTwapAccumulator: osmomath.ZeroDec(),
+		P1ArithmeticTwapAccumulator: osmomath.ZeroDec(),
+		GeometricTwapAccumulator:    osmomath.ZeroDec(),
+	}
 
 	threeAssetRecordAB, threeAssetRecordAC, threeAssetRecordBC types.TwapRecord = newThreeAssetPoolTwapRecordWithDefaults(
 		baseTime,
@@ -357,13 +371,14 @@ func (s *TestSuite) TestGetArithmeticTwap() {
 			expectSpErr:  baseTime,
 		},
 	}
+	counter := uint64(0)
 	for name, test := range tests {
+		curPoolId := counter
 		s.Run(name, func() {
-			s.SetupTest()
-			s.preSetRecords(test.recordsToSet)
+			s.preSetRecordsWithPoolId(curPoolId, test.recordsToSet)
 			s.Ctx = s.Ctx.WithBlockTime(test.ctxTime)
 
-			twap, err := s.twapkeeper.GetArithmeticTwap(s.Ctx, test.input.poolId,
+			twap, err := s.twapkeeper.GetArithmeticTwap(s.Ctx, curPoolId,
 				test.input.baseAssetDenom, test.input.quoteAssetDenom,
 				test.input.startTime, test.input.endTime)
 
@@ -376,6 +391,7 @@ func (s *TestSuite) TestGetArithmeticTwap() {
 			s.Require().NoError(err)
 			s.Require().Equal(test.expTwap, twap)
 		})
+		counter++
 	}
 }
 
@@ -577,16 +593,17 @@ func (s *TestSuite) TestGetArithmeticTwap_PruningRecordKeepPeriod() {
 		},
 	}
 
+	counter := uint64(0)
 	for name, test := range tests {
+		curPoolId := counter // Capture the current value of the counter for use within the goroutine
 		s.Run(name, func() {
-			s.SetupTest()
-			s.preSetRecords(test.recordsToSet)
+			s.preSetRecordsWithPoolId(curPoolId, test.recordsToSet)
 			s.Ctx = s.Ctx.WithBlockTime(test.ctxTime)
 
 			var twap osmomath.Dec
 			var err error
 
-			twap, err = s.twapkeeper.GetArithmeticTwap(s.Ctx, test.input.poolId,
+			twap, err = s.twapkeeper.GetArithmeticTwap(s.Ctx, curPoolId,
 				test.input.baseAssetDenom, test.input.quoteAssetDenom,
 				test.input.startTime, test.input.endTime)
 
@@ -598,6 +615,7 @@ func (s *TestSuite) TestGetArithmeticTwap_PruningRecordKeepPeriod() {
 			s.Require().NoError(err)
 			s.Require().Equal(test.expTwap, twap)
 		})
+		counter++
 	}
 }
 
@@ -757,17 +775,18 @@ func (s *TestSuite) TestGetArithmeticTwapToNow() {
 			expectedError: errSpotPrice,
 		},
 	}
+	counter := uint64(0)
 	for name, test := range tests {
+		curPoolId := counter
 		s.Run(name, func() {
-			s.SetupTest()
-			s.preSetRecords(test.recordsToSet)
+			s.preSetRecordsWithPoolId(curPoolId, test.recordsToSet)
 			s.Ctx = s.Ctx.WithBlockTime(test.ctxTime)
 
 			var twap osmomath.Dec
 			var err error
 
 			// test the values of `GetArithmeticTwapToNow` if bool in test field is true
-			twap, err = s.twapkeeper.GetArithmeticTwapToNow(s.Ctx, test.input.poolId,
+			twap, err = s.twapkeeper.GetArithmeticTwapToNow(s.Ctx, curPoolId,
 				test.input.baseAssetDenom, test.input.quoteAssetDenom,
 				test.input.startTime)
 
@@ -779,6 +798,7 @@ func (s *TestSuite) TestGetArithmeticTwapToNow() {
 			s.Require().NoError(err)
 			s.Require().Equal(test.expTwap, twap)
 		})
+		counter++
 	}
 }
 
@@ -861,8 +881,6 @@ func (s *TestSuite) TestGeometricTwapToNow_BalancerPool_Randomized() {
 		weightB := osmomath.NewInt(int64(sdkrand.RandIntBetween(r, 1, 1000)))
 
 		s.Run(fmt.Sprintf("elapsedTimeMs=%d, weightA=%d, tokenASupply=%d, weightB=%d, tokenBSupply=%d", elapsedTimeMs, weightA, tokenASupply, weightB, tokenBSupply), func() {
-			s.SetupTest()
-
 			ctx := s.Ctx
 			app := s.App
 
@@ -877,7 +895,7 @@ func (s *TestSuite) TestGeometricTwapToNow_BalancerPool_Randomized() {
 				},
 			}
 
-			s.PrepareCustomBalancerPool(assets, balancer.PoolParams{
+			poolId := s.PrepareCustomBalancerPool(assets, balancer.PoolParams{
 				SwapFee: osmomath.ZeroDec(),
 				ExitFee: osmomath.ZeroDec(),
 			})
@@ -890,10 +908,10 @@ func (s *TestSuite) TestGeometricTwapToNow_BalancerPool_Randomized() {
 
 			ctx = ctx.WithBlockTime(newTime)
 
-			spotPrice, err := app.GAMMKeeper.CalculateSpotPrice(ctx, 1, denom1, denom0)
+			spotPrice, err := app.GAMMKeeper.CalculateSpotPrice(ctx, poolId, denom1, denom0)
 			s.Require().NoError(err)
 
-			twap, err := app.TwapKeeper.GetGeometricTwapToNow(ctx, 1, denom0, denom1, oldTime)
+			twap, err := app.TwapKeeper.GetGeometricTwapToNow(ctx, poolId, denom0, denom1, oldTime)
 			s.Require().NoError(err)
 
 			osmomath.ErrTolerance{
@@ -902,6 +920,110 @@ func (s *TestSuite) TestGeometricTwapToNow_BalancerPool_Randomized() {
 				spotPrice,
 				osmomath.BigDecFromDec(twap),
 			)
+		})
+	}
+}
+
+func (s *TestSuite) TestUnsafeGetMultiPoolArithmeticTwapToNow() {
+	tests := map[string]struct {
+		recordsToSet    []types.TwapRecord
+		ctxTime         time.Time
+		route           []*poolmanagertypes.SwapAmountInRoute
+		baseAssetDenom  string
+		quoteAssetDenom string
+		startTime       time.Time
+		expTwap         osmomath.Dec
+		expectedError   error
+	}{
+		"single pool route: baseQuote BA, route tokenOut is quote": {
+			recordsToSet:    []types.TwapRecord{baseRecord},
+			ctxTime:         tPlusOneMin,
+			route:           []*poolmanagertypes.SwapAmountInRoute{{PoolId: 1, TokenOutDenom: denom0}},
+			baseAssetDenom:  denom1,
+			quoteAssetDenom: denom0,
+			startTime:       baseTime,
+			expTwap:         osmomath.NewDec(10),
+		},
+		"single pool route: baseQuote AB, route tokenOut is quote": {
+			recordsToSet:    []types.TwapRecord{baseRecord},
+			ctxTime:         tPlusOneMin,
+			route:           []*poolmanagertypes.SwapAmountInRoute{{PoolId: 1, TokenOutDenom: denom1}},
+			baseAssetDenom:  denom0,
+			quoteAssetDenom: denom1,
+			startTime:       baseTime,
+			expTwap:         osmomath.MustNewDecFromStr("0.1"),
+		},
+		"single pool route: baseQuote BC, route tokenOut is quote": {
+			recordsToSet:    []types.TwapRecord{poolTwoRecord},
+			ctxTime:         tPlusOneMin,
+			route:           []*poolmanagertypes.SwapAmountInRoute{{PoolId: 2, TokenOutDenom: denom2}},
+			baseAssetDenom:  denom1,
+			quoteAssetDenom: denom2,
+			startTime:       baseTime,
+			expTwap:         osmomath.MustNewDecFromStr("0.2"),
+		},
+		"multi pool route": {
+			recordsToSet: []types.TwapRecord{
+				baseRecord,
+				poolTwoRecord,
+			},
+			ctxTime: tPlusOneMin,
+			route: []*poolmanagertypes.SwapAmountInRoute{
+				{PoolId: 1, TokenOutDenom: denom1},
+				{PoolId: 2, TokenOutDenom: denom2},
+			},
+			baseAssetDenom:  denom0,
+			quoteAssetDenom: denom2,
+			startTime:       baseTime,
+			expTwap:         osmomath.MustNewDecFromStr("0.02"), // .1 from AB * .2 from BC
+		},
+		"route with error in TWAP calculation": {
+			recordsToSet:    []types.TwapRecord{withLastErrTime(baseRecord, baseTime)},
+			ctxTime:         tPlusOneMin,
+			route:           []*poolmanagertypes.SwapAmountInRoute{{PoolId: 1, TokenOutDenom: denom1}},
+			baseAssetDenom:  denom0,
+			quoteAssetDenom: denom1,
+			startTime:       baseTime,
+			expectedError:   errSpotPrice,
+		},
+		"empty route": {
+			recordsToSet:    []types.TwapRecord{},
+			ctxTime:         tPlusOneMin,
+			route:           []*poolmanagertypes.SwapAmountInRoute{},
+			baseAssetDenom:  denom0,
+			quoteAssetDenom: denom1,
+			startTime:       baseTime,
+			expectedError:   types.ErrEmptyRoute,
+		},
+		"route tokenOut is base": {
+			recordsToSet:    []types.TwapRecord{baseRecord},
+			ctxTime:         tPlusOneMin,
+			route:           []*poolmanagertypes.SwapAmountInRoute{{PoolId: 1, TokenOutDenom: denom1}},
+			baseAssetDenom:  denom0,
+			quoteAssetDenom: denom2,
+			startTime:       baseTime,
+			expectedError:   types.ErrMismatchedQuoteAsset,
+		},
+	}
+
+	for name, test := range tests {
+		s.Run(name, func() {
+			for _, record := range test.recordsToSet {
+				s.preSetRecordsWithPoolId(record.PoolId, []types.TwapRecord{record})
+			}
+			s.Ctx = s.Ctx.WithBlockTime(test.ctxTime)
+
+			twap, err := s.twapkeeper.UnsafeGetMultiPoolArithmeticTwapToNow(
+				s.Ctx, test.route, test.baseAssetDenom, test.quoteAssetDenom, test.startTime,
+			)
+
+			if test.expectedError != nil {
+				s.Require().Error(err)
+				s.Require().Equal(test.expectedError, err)
+				return
+			}
+			s.Require().NoError(err)
+			s.Require().Equal(test.expTwap, twap)
 		})
 	}
 }

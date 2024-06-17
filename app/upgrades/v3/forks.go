@@ -5,7 +5,7 @@ import (
 	govkeeper "github.com/cosmos/cosmos-sdk/x/gov/keeper"
 	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
 
-	"github.com/osmosis-labs/osmosis/v23/app/keepers"
+	"github.com/osmosis-labs/osmosis/v25/app/keepers"
 )
 
 // RunForkLogic executes height-gated on-chain fork logic for the Osmosis v3
@@ -21,9 +21,9 @@ func RunForkLogic(ctx sdk.Context, keepers *keepers.AppKeepers) {
 // Fixes an error where minimum deposit was set to "500 osmo". This denom does
 // not exist, which makes it impossible for a proposal to go to a vote.
 func FixMinDepositDenom(ctx sdk.Context, gov *govkeeper.Keeper) {
-	// UNFORKINGNOTE: GetDepositParams no longer exists, keeping commented for historical purposes
+	// GetDepositParams no longer exists, keeping commented for historical purposes
 	// params := gov.GetDepositParams(ctx)
-	// params.MinDeposit = sdk.NewCoins(sdk.NewCoin("uosmo", osmomath.NewInt(500000000)))
+	// params.MinDeposit = sdk.NewCoins(sdk.NewCoin(appparams.BaseCoinUnit, osmomath.NewInt(500000000)))
 	// gov.SetDepositParams(ctx, params)
 }
 
@@ -31,12 +31,19 @@ func FixMinDepositDenom(ctx sdk.Context, gov *govkeeper.Keeper) {
 // than the network minimum rate.
 func FixMinCommisionRate(ctx sdk.Context, staking *stakingkeeper.Keeper) {
 	// Upgrade every validators min-commission rate
-	validators := staking.GetAllValidators(ctx)
-	minCommissionRate := staking.GetParams(ctx).MinCommissionRate
+	validators, err := staking.GetAllValidators(ctx)
+	if err != nil {
+		panic(err)
+	}
+	stakingParams, err := staking.GetParams(ctx)
+	if err != nil {
+		panic(err)
+	}
+	minCommissionRate := stakingParams.MinCommissionRate
 	for _, v := range validators {
 		// nolint
 		if v.Commission.Rate.LT(minCommissionRate) {
-			// UNFORKINGNOTE: MustUpdateValidatorCommission no longer exists, keeping commented for historical purposes
+			// MustUpdateValidatorCommission no longer exists, keeping commented for historical purposes
 			// comm, err := staking.MustUpdateValidatorCommission(ctx, v, minCommissionRate)
 			// if err != nil {
 			// 	panic(err)

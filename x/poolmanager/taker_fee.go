@@ -1,21 +1,33 @@
 package poolmanager
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 
+	storetypes "cosmossdk.io/store/types"
+
 	"github.com/osmosis-labs/osmosis/osmoutils"
-	"github.com/osmosis-labs/osmosis/v23/x/poolmanager/types"
-	txfeestypes "github.com/osmosis-labs/osmosis/v23/x/txfees/types"
+	"github.com/osmosis-labs/osmosis/v25/x/poolmanager/types"
+	txfeestypes "github.com/osmosis-labs/osmosis/v25/x/txfees/types"
 )
 
-func (k Keeper) GetDefaultTakerFee(ctx sdk.Context) sdk.Dec {
-	var defaultTakerFee sdk.Dec
-	k.paramSpace.Get(ctx, types.KeyDefaultTakerFee, &defaultTakerFee)
-	return defaultTakerFee
+func (k *Keeper) GetDefaultTakerFee(ctx sdk.Context) osmomath.Dec {
+	defaultTakerFeeBz := k.paramSpace.GetRaw(ctx, types.KeyDefaultTakerFee)
+	if !bytes.Equal(defaultTakerFeeBz, k.defaultTakerFeeBz) {
+		var defaultTakerFeeValue osmomath.Dec
+		err := json.Unmarshal(defaultTakerFeeBz, &defaultTakerFeeValue)
+		if err != nil {
+			defaultTakerFeeValue = osmomath.ZeroDec()
+		}
+		k.defaultTakerFeeBz = defaultTakerFeeBz
+		k.defaultTakerFeeVal = defaultTakerFeeValue
+	}
+	return k.defaultTakerFeeVal
 }
 
 // SetDenomPairTakerFee sets the taker fee for the given trading pair.
@@ -68,9 +80,10 @@ func (k Keeper) SenderValidationSetDenomPairTakerFee(ctx sdk.Context, sender, de
 
 // GetTradingPairTakerFee returns the taker fee for the given trading pair.
 // If the trading pair does not exist, it returns the default taker fee.
-func (k Keeper) GetTradingPairTakerFee(ctx sdk.Context, denom0, denom1 string) (osmomath.Dec, error) {
+// The order of the trading pair matters.
+func (k Keeper) GetTradingPairTakerFee(ctx sdk.Context, tokenInDenom, tokenOutDenom string) (osmomath.Dec, error) {
 	store := ctx.KVStore(k.storeKey)
-	key := types.FormatDenomTradePairKey(denom0, denom1)
+	key := types.FormatDenomTradePairKey(tokenInDenom, tokenOutDenom)
 
 	takerFee := &sdk.DecProto{}
 	found, err := osmoutils.Get(store, key, takerFee)
@@ -87,21 +100,21 @@ func (k Keeper) GetTradingPairTakerFee(ctx sdk.Context, denom0, denom1 string) (
 // GetAllTradingPairTakerFees returns all the custom taker fees for trading pairs.
 func (k Keeper) GetAllTradingPairTakerFees(ctx sdk.Context) ([]types.DenomPairTakerFee, error) {
 	store := ctx.KVStore(k.storeKey)
-	iterator := sdk.KVStoreReversePrefixIterator(store, types.DenomTradePairPrefix)
+	iterator := storetypes.KVStoreReversePrefixIterator(store, types.DenomTradePairPrefix)
 	defer iterator.Close()
 
 	var takerFees []types.DenomPairTakerFee
 	for ; iterator.Valid(); iterator.Next() {
 		takerFee := &sdk.DecProto{}
 		osmoutils.MustGet(store, iterator.Key(), takerFee)
-		denom0, denom1, err := types.ParseDenomTradePairKey(iterator.Key())
+		tokenInDenom, tokenOutDenom, err := types.ParseDenomTradePairKey(iterator.Key())
 		if err != nil {
 			return nil, err
 		}
 		takerFees = append(takerFees, types.DenomPairTakerFee{
-			Denom0:   denom0,
-			Denom1:   denom1,
-			TakerFee: takerFee.Dec,
+			TokenInDenom:  tokenInDenom,
+			TokenOutDenom: tokenOutDenom,
+			TakerFee:      takerFee.Dec,
 		})
 	}
 
@@ -148,8 +161,7 @@ func (k Keeper) chargeTakerFee(ctx sdk.Context, tokenIn sdk.Coin, tokenOutDenom 
 // returns (1 - takerFee) * tokenIn, takerFee * tokenIn
 func CalcTakerFeeExactIn(tokenIn sdk.Coin, takerFee osmomath.Dec) (sdk.Coin, sdk.Coin) {
 	takerFeeFactor := osmomath.OneDec().SubMut(takerFee)
-	// TODO: Remove .ToLegacyDec and instead do MulInt. Need to test state compat.
-	amountInAfterSubTakerFee := tokenIn.Amount.ToLegacyDec().MulTruncate(takerFeeFactor)
+	amountInAfterSubTakerFee := takerFeeFactor.MulIntMut(tokenIn.Amount)
 	tokenInAfterSubTakerFee := sdk.Coin{Denom: tokenIn.Denom, Amount: amountInAfterSubTakerFee.TruncateInt()}
 	takerFeeCoin := sdk.Coin{Denom: tokenIn.Denom, Amount: tokenIn.Amount.Sub(tokenInAfterSubTakerFee.Amount)}
 

@@ -1,22 +1,32 @@
 package domain
 
 import (
+	"context"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 
-	"github.com/osmosis-labs/osmosis/v23/x/concentrated-liquidity/client/queryproto"
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v23/x/poolmanager/types"
+	storetypes "cosmossdk.io/store/types"
+
+	"github.com/osmosis-labs/osmosis/v25/x/concentrated-liquidity/client/queryproto"
+	concentratedtypes "github.com/osmosis-labs/osmosis/v25/x/concentrated-liquidity/types"
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v25/x/poolmanager/types"
 )
 
 // Chain keepers required for sqs ingest.
 type SQSIngestKeepers struct {
 	GammKeeper         PoolKeeper
 	CosmWasmPoolKeeper CosmWasmPoolKeeper
+	WasmKeeper         WasmKeeper
 	BankKeeper         BankKeeper
 	ProtorevKeeper     ProtorevKeeper
 	PoolManagerKeeper  PoolManagerKeeper
 	ConcentratedKeeper ConcentratedKeeper
+}
+
+type WriteListener interface {
+	OnWrite(storeKey storetypes.StoreKey, key []byte, value []byte, delete bool) error
 }
 
 // PoolKeeper is an interface for getting pools from a keeper.
@@ -29,9 +39,15 @@ type CosmWasmPoolKeeper interface {
 	GetPoolsWithWasmKeeper(ctx sdk.Context) ([]poolmanagertypes.PoolI, error)
 }
 
+// WasmKeeper is an interface for querying CosmWasm contract.
+type WasmKeeper interface {
+	QueryRaw(ctx context.Context, contractAddress sdk.AccAddress, key []byte) []byte
+	QuerySmart(ctx context.Context, contractAddress sdk.AccAddress, req []byte) ([]byte, error)
+}
+
 // BankKeeper is an interface for getting bank balances.
 type BankKeeper interface {
-	GetAllBalances(ctx sdk.Context, addr sdk.AccAddress) sdk.Coins
+	GetAllBalances(ctx context.Context, addr sdk.AccAddress) sdk.Coins
 }
 
 // ProtorevKeeper is an interface for getting the pool for a denom pair.
@@ -75,4 +91,5 @@ type PoolManagerKeeper interface {
 type ConcentratedKeeper interface {
 	PoolKeeper
 	GetTickLiquidityForFullRange(ctx sdk.Context, poolId uint64) ([]queryproto.LiquidityDepthWithRange, int64, error)
+	GetConcentratedPoolById(ctx sdk.Context, poolId uint64) (concentratedtypes.ConcentratedPoolExtension, error)
 }

@@ -7,10 +7,11 @@ import (
 
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 
-	"github.com/osmosis-labs/osmosis/v23/x/poolmanager"
-	"github.com/osmosis-labs/osmosis/v23/x/poolmanager/client/queryproto"
-	"github.com/osmosis-labs/osmosis/v23/x/poolmanager/client/queryprotov2"
-	"github.com/osmosis-labs/osmosis/v23/x/poolmanager/types"
+	"github.com/osmosis-labs/osmosis/osmomath"
+	"github.com/osmosis-labs/osmosis/v25/x/poolmanager"
+	"github.com/osmosis-labs/osmosis/v25/x/poolmanager/client/queryproto"
+	"github.com/osmosis-labs/osmosis/v25/x/poolmanager/client/queryprotov2"
+	"github.com/osmosis-labs/osmosis/v25/x/poolmanager/types"
 )
 
 // This file should evolve to being code gen'd, off of `proto/poolmanager/v1beta/query.yml`
@@ -379,8 +380,8 @@ func (q Querier) EstimateTradeBasedOnPriceImpact(
 		// already exceeds the max price impact.
 		if adjustedMaxPriceImpact.IsZero() || adjustedMaxPriceImpact.IsNegative() {
 			return &queryproto.EstimateTradeBasedOnPriceImpactResponse{
-				InputCoin:  sdk.NewCoin(req.FromCoin.Denom, sdk.ZeroInt()),
-				OutputCoin: sdk.NewCoin(req.ToCoinDenom, sdk.ZeroInt()),
+				InputCoin:  sdk.NewCoin(req.FromCoin.Denom, osmomath.ZeroInt()),
+				OutputCoin: sdk.NewCoin(req.ToCoinDenom, osmomath.ZeroInt()),
 			}, nil
 		}
 	}

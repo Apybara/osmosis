@@ -1,13 +1,16 @@
 package poolmanager
 
 import (
+	"sync"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	gogotypes "github.com/cosmos/gogoproto/types"
 
+	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/osmosis/osmoutils"
-	"github.com/osmosis-labs/osmosis/v23/x/poolmanager/types"
+	"github.com/osmosis-labs/osmosis/v25/x/poolmanager/types"
 
-	storetypes "github.com/cosmos/cosmos-sdk/store/types"
+	storetypes "cosmossdk.io/store/types"
 	paramtypes "github.com/cosmos/cosmos-sdk/x/params/types"
 )
 
@@ -27,6 +30,11 @@ type Keeper struct {
 	// routes is a map to get the pool module by id.
 	routes map[types.PoolType]types.PoolModuleI
 
+	// map from poolId to the swap module + Gas consumed amount
+	// note that after getPoolModule doesn't return an error
+	// it will always return the same result. Meaning its perfect for a sync.map cache.
+	cachedPoolModules *sync.Map
+
 	// poolModules is a list of all pool modules.
 	// It is used when an operation has to be applied to all pool
 	// modules. Since map iterations are non-deterministic, we
@@ -34,6 +42,9 @@ type Keeper struct {
 	poolModules []types.PoolModuleI
 
 	paramSpace paramtypes.Subspace
+
+	defaultTakerFeeBz  []byte
+	defaultTakerFeeVal osmomath.Dec
 }
 
 func NewKeeper(storeKey storetypes.StoreKey, paramSpace paramtypes.Subspace, gammKeeper types.PoolModuleI, concentratedKeeper types.PoolModuleI, cosmwasmpoolKeeper types.PoolModuleI, bankKeeper types.BankI, accountKeeper types.AccountI, communityPoolKeeper types.CommunityPoolI, stakingKeeper types.StakingKeeper, protorevKeeper types.ProtorevKeeper) *Keeper {
@@ -53,6 +64,8 @@ func NewKeeper(storeKey storetypes.StoreKey, paramSpace paramtypes.Subspace, gam
 		gammKeeper, concentratedKeeper, cosmwasmpoolKeeper,
 	}
 
+	cachedPoolModules := &sync.Map{}
+
 	return &Keeper{
 		storeKey:            storeKey,
 		paramSpace:          paramSpace,
@@ -66,7 +79,12 @@ func NewKeeper(storeKey storetypes.StoreKey, paramSpace paramtypes.Subspace, gam
 		poolModules:         routesList,
 		stakingKeeper:       stakingKeeper,
 		protorevKeeper:      protorevKeeper,
+		cachedPoolModules:   cachedPoolModules,
 	}
+}
+
+func (k *Keeper) ResetCaches() {
+	k.cachedPoolModules = &sync.Map{}
 }
 
 // GetParams returns the total set of poolmanager parameters.
@@ -119,7 +137,7 @@ func (k Keeper) InitGenesis(ctx sdk.Context, genState *types.GenesisState) {
 
 	// Set the denom pair taker fees KVStore.
 	for _, denomPairTakerFee := range genState.DenomPairTakerFeeStore {
-		k.SetDenomPairTakerFee(ctx, denomPairTakerFee.Denom0, denomPairTakerFee.Denom1, denomPairTakerFee.TakerFee)
+		k.SetDenomPairTakerFee(ctx, denomPairTakerFee.TokenInDenom, denomPairTakerFee.TokenOutDenom, denomPairTakerFee.TakerFee)
 	}
 }
 

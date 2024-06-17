@@ -1,20 +1,21 @@
 package v23
 
 import (
+	"context"
 	"errors"
 	"sort"
 	"time"
 
+	upgradetypes "cosmossdk.io/x/upgrade/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
-	upgradetypes "github.com/cosmos/cosmos-sdk/x/upgrade/types"
 
-	incentivestypes "github.com/osmosis-labs/osmosis/v23/x/incentives/types"
+	incentivestypes "github.com/osmosis-labs/osmosis/v25/x/incentives/types"
 
-	"github.com/osmosis-labs/osmosis/v23/app/keepers"
-	"github.com/osmosis-labs/osmosis/v23/app/upgrades"
-	concentratedliquidity "github.com/osmosis-labs/osmosis/v23/x/concentrated-liquidity"
-	concentratedtypes "github.com/osmosis-labs/osmosis/v23/x/concentrated-liquidity/types"
+	"github.com/osmosis-labs/osmosis/v25/app/keepers"
+	"github.com/osmosis-labs/osmosis/v25/app/upgrades"
+	concentratedliquidity "github.com/osmosis-labs/osmosis/v25/x/concentrated-liquidity"
+	concentratedtypes "github.com/osmosis-labs/osmosis/v25/x/concentrated-liquidity/types"
 )
 
 const (
@@ -36,7 +37,8 @@ func CreateUpgradeHandler(
 	bpm upgrades.BaseAppParamManager,
 	keepers *keepers.AppKeepers,
 ) upgradetypes.UpgradeHandler {
-	return func(ctx sdk.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
+	return func(context context.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
+		ctx := sdk.UnwrapSDKContext(context)
 		before := time.Now()
 
 		// Run migrations before applying any other state changes.
@@ -94,7 +96,7 @@ func migrateMainnetPools(ctx sdk.Context, concentratedKeeper concentratedliquidi
 
 	// Migrate concentrated pools
 	for _, poolId := range poolIDsToMigrate {
-		if err := concentratedKeeper.MigrateAccumulatorToScalingFactor(ctx, poolId); err != nil {
+		if err := concentratedKeeper.MigrateIncentivesAccumulatorToScalingFactor(ctx, poolId); err != nil {
 			return err
 		}
 	}
@@ -113,7 +115,7 @@ func migrateAllTestnetPools(ctx sdk.Context, concentratedKeeper concentratedliqu
 
 	// Migrate each pool
 	for _, pool := range pools {
-		if err := concentratedKeeper.MigrateAccumulatorToScalingFactor(ctx, pool.GetId()); err != nil {
+		if err := concentratedKeeper.MigrateIncentivesAccumulatorToScalingFactor(ctx, pool.GetId()); err != nil {
 			return err
 		}
 	}

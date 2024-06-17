@@ -3,18 +3,23 @@ package v9_test
 import (
 	"testing"
 
+	"cosmossdk.io/core/appmodule"
+	"cosmossdk.io/x/upgrade"
+	addresscodec "github.com/cosmos/cosmos-sdk/codec/address"
 	"github.com/stretchr/testify/suite"
 
-	"github.com/osmosis-labs/osmosis/v23/app/apptesting"
-	v9 "github.com/osmosis-labs/osmosis/v23/app/upgrades/v9"
+	"github.com/osmosis-labs/osmosis/v25/app/apptesting"
+	v9 "github.com/osmosis-labs/osmosis/v25/app/upgrades/v9"
 )
 
 type UpgradeTestSuite struct {
 	apptesting.KeeperTestHelper
+	preModule appmodule.HasPreBlocker
 }
 
 func (s *UpgradeTestSuite) SetupTest() {
 	s.Setup()
+	s.preModule = upgrade.NewAppModule(s.App.UpgradeKeeper, addresscodec.NewBech32Codec("osmo"))
 }
 
 func TestKeeperTestSuite(t *testing.T) {

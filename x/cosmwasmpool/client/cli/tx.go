@@ -18,8 +18,8 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/osmosis-labs/osmosis/osmoutils/osmocli"
-	"github.com/osmosis-labs/osmosis/v23/x/cosmwasmpool/model"
-	"github.com/osmosis-labs/osmosis/v23/x/cosmwasmpool/types"
+	"github.com/osmosis-labs/osmosis/v25/x/cosmwasmpool/model"
+	"github.com/osmosis-labs/osmosis/v25/x/cosmwasmpool/types"
 )
 
 func NewTxCmd() *cobra.Command {
@@ -32,7 +32,7 @@ func NewCreateCWPoolCmd() (*osmocli.TxCliDesc, *model.MsgCreateCosmWasmPool) {
 	return &osmocli.TxCliDesc{
 		Use:              "create-pool",
 		Short:            "create a cosmwasm pool",
-		Example:          "osmosisd tx cosmwasmpool create-pool 1 '{\"pool_assets_denom\":[\"uion\",\"uosmo\"]}' --from lo-test1 --keyring-backend test --chain-id localosmosis --fees 875uosmo -b=block",
+		Example:          "osmosisd tx cosmwasmpool create-pool 1 '{\"pool_asset_denoms\":[\"uion\",\"uosmo\"]}' --from lo-test1 --keyring-backend test --chain-id localosmosis --fees 875uosmo -b=block",
 		NumArgs:          2,
 		ParseAndBuildMsg: BuildCreatePoolMsg,
 	}, &model.MsgCreateCosmWasmPool{}

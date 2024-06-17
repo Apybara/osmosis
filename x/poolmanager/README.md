@@ -363,7 +363,7 @@ The following is the process in which the query finds a trade that will stay bel
 3. Return the specific `PoolI` interface from the `swapModule` based on the `PoolId`.
 4. Calculate the `SpotPrice` in terms of the token being bought, therefore if it's an `OSMO/ATOM` pool and `OSMO` is being sold we need to calculate the `SpotPrice` in terms of `ATOM` being the base asset and `OSMO` being the quote asset.
 5. If we have a `ExternalPrice` specified in the request we need to adjust the `MaxPriceImpact` into a new variable `adjustedMaxPriceImpact` which would either increase if the `SpotPrice` is cheaper than the `ExternalPrice` or decrease if the `SpotPrice` is more expensive leaving less room to estimate a trade.
-   1. If the `adjustedMaxPriceImpact` was calculated to be `0` or negative it means that the `SpotPrice` is more expensive than the `ExternalPrice` and has already exceeded the possible `MaxPriceImpact`. We return a `sdk.ZeroInt()` input and output for the input and output coins indicating that no trade is viable.
+   1. If the `adjustedMaxPriceImpact` was calculated to be `0` or negative it means that the `SpotPrice` is more expensive than the `ExternalPrice` and has already exceeded the possible `MaxPriceImpact`. We return a `osmomath.ZeroInt()` input and output for the input and output coins indicating that no trade is viable.
 6. Then according to the pool type we attempt to find a viable trade, we must process each pool type differently as they return different results for different scenarios. The sections below explain the different pool types and how they each handle input.
 
 #### Balancer Pool Type Process
@@ -492,9 +492,9 @@ Lets go through the lifecycle to better understand how taker fee works in a vari
 
 ### Example 1: Non OSMO taker fee
 
-A user makes a swap of USDC to OSMO. First, the protocol checks the KVStore to determine if the the denom pair has a taker fee override. If the pair exists in the KVStore, the taker fee override is used. If the pair does not exist, the defaultTakerFee is used.
+A user makes a swap of USDC to OSMO. First, the protocol checks the KVStore to determine if the the denom pair has a taker fee override. If the pair exists in the KVStore, the taker fee override is used. If the pair does not exist, the defaultTakerFee is used. It is important to note that the order of the denom pair now matters, so if a denom pair taker fee override exists for OSMO to USDC but not USDC to OSMO, the default taker fee will instead be used.
 
-In this example, defaultTakerFee is 0.02%. A USDC<>OSMO KVStore exists with an override of 0.01%. Therefore, 0.01% is used.
+In this example, defaultTakerFee is 0.02%. A USDC->OSMO KVStore exists with an override of 0.01%. Therefore, 0.01% is used.
 
 Now, imagine the amount in is 10000 USDC. This means that the amount of takerFee utilized is 0.01% of 10000, which is 1 USDC.
 

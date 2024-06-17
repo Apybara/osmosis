@@ -7,9 +7,10 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
-	"github.com/osmosis-labs/osmosis/v23/app/apptesting"
-	"github.com/osmosis-labs/osmosis/v23/x/gamm/pool-models/balancer"
-	"github.com/osmosis-labs/osmosis/v23/x/poolmanager/types"
+	"github.com/osmosis-labs/osmosis/v25/app/apptesting"
+	appparams "github.com/osmosis-labs/osmosis/v25/app/params"
+	"github.com/osmosis-labs/osmosis/v25/x/gamm/pool-models/balancer"
+	"github.com/osmosis-labs/osmosis/v25/x/poolmanager/types"
 )
 
 type KeeperTestSuite struct {
@@ -31,7 +32,7 @@ var (
 	}
 	testAdminAddresses                                 = []string{"osmo106x8q2nv7xsg7qrec2zgdf3vvq0t3gn49zvaha", "osmo105l5r3rjtynn7lg362r2m9hkpfvmgmjtkglsn9"}
 	testCommunityPoolDenomToSwapNonWhitelistedAssetsTo = "uusdc"
-	testAuthorizedQuoteDenoms                          = []string{"uosmo", "uion", "uatom"}
+	testAuthorizedQuoteDenoms                          = []string{appparams.BaseCoinUnit, "uion", "uatom"}
 
 	testPoolRoute = []types.ModuleRoute{
 		{
@@ -45,32 +46,32 @@ var (
 	}
 
 	testTakerFeesTracker = types.TakerFeesTracker{
-		TakerFeesToStakers:         sdk.Coins{sdk.NewCoin("uosmo", sdk.NewInt(1000))},
-		TakerFeesToCommunityPool:   sdk.Coins{sdk.NewCoin("uusdc", sdk.NewInt(1000))},
+		TakerFeesToStakers:         sdk.Coins{sdk.NewCoin(appparams.BaseCoinUnit, osmomath.NewInt(1000))},
+		TakerFeesToCommunityPool:   sdk.Coins{sdk.NewCoin("uusdc", osmomath.NewInt(1000))},
 		HeightAccountingStartsFrom: 100,
 	}
 
 	testPoolVolumes = []*types.PoolVolume{
 		{
 			PoolId:     1,
-			PoolVolume: sdk.NewCoins(sdk.NewCoin("uosmo", sdk.NewInt(10000000))),
+			PoolVolume: sdk.NewCoins(sdk.NewCoin(appparams.BaseCoinUnit, osmomath.NewInt(10000000))),
 		},
 		{
 			PoolId:     2,
-			PoolVolume: sdk.NewCoins(sdk.NewCoin("uosmo", sdk.NewInt(20000000))),
+			PoolVolume: sdk.NewCoins(sdk.NewCoin(appparams.BaseCoinUnit, osmomath.NewInt(20000000))),
 		},
 	}
 
 	testDenomPairTakerFees = []types.DenomPairTakerFee{
 		{
-			Denom0:   "uion",
-			Denom1:   "uosmo",
-			TakerFee: osmomath.MustNewDecFromStr("0.0016"),
+			TokenInDenom:  "uion",
+			TokenOutDenom: appparams.BaseCoinUnit,
+			TakerFee:      osmomath.MustNewDecFromStr("0.0016"),
 		},
 		{
-			Denom0:   "uatom",
-			Denom1:   "uosmo",
-			TakerFee: osmomath.MustNewDecFromStr("0.002"),
+			TokenInDenom:  "uatom",
+			TokenOutDenom: appparams.BaseCoinUnit,
+			TakerFee:      osmomath.MustNewDecFromStr("0.002"),
 		},
 	}
 )
@@ -83,10 +84,11 @@ func (s *KeeperTestSuite) SetupTest() {
 	s.Setup()
 
 	// Set the bond denom to be uosmo to make volume tracking tests more readable.
-	skParams := s.App.StakingKeeper.GetParams(s.Ctx)
-	skParams.BondDenom = "uosmo"
+	skParams, err := s.App.StakingKeeper.GetParams(s.Ctx)
+	s.Require().NoError(err)
+	skParams.BondDenom = appparams.BaseCoinUnit
 	s.App.StakingKeeper.SetParams(s.Ctx, skParams)
-	s.App.TxFeesKeeper.SetBaseDenom(s.Ctx, "uosmo")
+	s.App.TxFeesKeeper.SetBaseDenom(s.Ctx, appparams.BaseCoinUnit)
 	poolManagerParams := s.App.PoolManagerKeeper.GetParams(s.Ctx)
 	poolManagerParams.TakerFeeParams.CommunityPoolDenomToSwapNonWhitelistedAssetsTo = "baz"
 	s.App.PoolManagerKeeper.SetParams(s.Ctx, poolManagerParams)
@@ -154,10 +156,10 @@ func (s *KeeperTestSuite) TestInitGenesis() {
 	s.Require().Equal(testPoolVolumes[0].PoolVolume, s.App.PoolManagerKeeper.GetTotalVolumeForPool(s.Ctx, testPoolVolumes[0].PoolId))
 	s.Require().Equal(testPoolVolumes[1].PoolVolume, s.App.PoolManagerKeeper.GetTotalVolumeForPool(s.Ctx, testPoolVolumes[1].PoolId))
 
-	takerFee, err := s.App.PoolManagerKeeper.GetTradingPairTakerFee(s.Ctx, testDenomPairTakerFees[0].Denom0, testDenomPairTakerFees[0].Denom1)
+	takerFee, err := s.App.PoolManagerKeeper.GetTradingPairTakerFee(s.Ctx, testDenomPairTakerFees[0].TokenInDenom, testDenomPairTakerFees[0].TokenOutDenom)
 	s.Require().NoError(err)
 	s.Require().Equal(testDenomPairTakerFees[0].TakerFee, takerFee)
-	takerFee, err = s.App.PoolManagerKeeper.GetTradingPairTakerFee(s.Ctx, testDenomPairTakerFees[1].Denom0, testDenomPairTakerFees[1].Denom1)
+	takerFee, err = s.App.PoolManagerKeeper.GetTradingPairTakerFee(s.Ctx, testDenomPairTakerFees[1].TokenInDenom, testDenomPairTakerFees[1].TokenOutDenom)
 	s.Require().NoError(err)
 	s.Require().Equal(testDenomPairTakerFees[1].TakerFee, takerFee)
 }

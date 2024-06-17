@@ -13,16 +13,16 @@ import (
 	"time"
 
 	"github.com/cometbft/cometbft/libs/bytes"
-	transfertypes "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
+	transfertypes "github.com/cosmos/ibc-go/v8/modules/apps/transfer/types"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
-	appparams "github.com/osmosis-labs/osmosis/v23/app/params"
-	"github.com/osmosis-labs/osmosis/v23/tests/e2e/configurer/config"
-	"github.com/osmosis-labs/osmosis/v23/tests/e2e/initialization"
-	"github.com/osmosis-labs/osmosis/v23/tests/e2e/util"
+	appparams "github.com/osmosis-labs/osmosis/v25/app/params"
+	"github.com/osmosis-labs/osmosis/v25/tests/e2e/configurer/config"
+	"github.com/osmosis-labs/osmosis/v25/tests/e2e/initialization"
+	"github.com/osmosis-labs/osmosis/v25/tests/e2e/util"
 
-	ibcratelimittypes "github.com/osmosis-labs/osmosis/v23/x/ibc-rate-limit/types"
-	lockuptypes "github.com/osmosis-labs/osmosis/v23/x/lockup/types"
+	ibcratelimittypes "github.com/osmosis-labs/osmosis/v25/x/ibc-rate-limit/types"
+	lockuptypes "github.com/osmosis-labs/osmosis/v25/x/lockup/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
@@ -31,10 +31,14 @@ import (
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	"github.com/stretchr/testify/require"
 
-	app "github.com/osmosis-labs/osmosis/v23/app"
+	app "github.com/osmosis-labs/osmosis/v25/app"
 
 	paramsutils "github.com/cosmos/cosmos-sdk/x/params/client/utils"
 )
+
+type ParamsResponse struct {
+	Param params `json:"param"`
+}
 
 // The value is returned as a string, so we have to unmarshal twice
 type params struct {
@@ -119,13 +123,13 @@ func (n *NodeConfig) CreateConcentratedPosition(from, lowerTick, upperTick strin
 
 	// Check if we found a match
 	if len(matches) < 2 {
-		return 0, sdk.ZeroDec()
+		return 0, osmomath.ZeroDec()
 	}
 
 	// Convert the position_id from string to int
 	positionID, err := strconv.Atoi(matches[1])
 	if err != nil {
-		return 0, sdk.ZeroDec()
+		return 0, osmomath.ZeroDec()
 	}
 
 	// Extract the liquidity from the response
@@ -134,7 +138,7 @@ func (n *NodeConfig) CreateConcentratedPosition(from, lowerTick, upperTick strin
 
 	// Check if we found a match
 	if len(matches) < 2 {
-		return 0, sdk.ZeroDec()
+		return 0, osmomath.ZeroDec()
 	}
 
 	// Convert the liquidity from string to Dec
@@ -142,7 +146,7 @@ func (n *NodeConfig) CreateConcentratedPosition(from, lowerTick, upperTick strin
 
 	n.LogActionF("successfully created concentrated position from %s to %s", lowerTick, upperTick)
 
-	return uint64(positionID), sdk.MustNewDecFromStr(liquidityStr)
+	return uint64(positionID), osmomath.MustNewDecFromStr(liquidityStr)
 }
 
 func (n *NodeConfig) StoreWasmCode(wasmFile, from string) int {
@@ -186,19 +190,30 @@ func (n *NodeConfig) WasmExecute(contract, execMsg, from string) {
 
 // QueryParams extracts the params for a given subspace and key. This is done generically via json to avoid having to
 // specify the QueryParamResponse type (which may not exist for all params).
-func (n *NodeConfig) QueryParams(subspace, key string) string {
+func (n *NodeConfig) QueryParams(subspace, key string, prev26 bool) string {
 	cmd := []string{"osmosisd", "query", "params", "subspace", subspace, key, "--output=json"}
 
 	out, _, err := n.containerManager.ExecCmd(n.t, n.Name, cmd, "", false, false)
 	require.NoError(n.t, err)
 
-	result := &params{}
-	err = json.Unmarshal(out.Bytes(), &result)
+	fmt.Println(out.String())
+
+	var value string
+	if prev26 {
+		result := &params{}
+		err = json.Unmarshal(out.Bytes(), &result)
+		value = result.Value
+	} else {
+		result := &ParamsResponse{}
+		err = json.Unmarshal(out.Bytes(), &result)
+		value = result.Param.Value
+	}
 	require.NoError(n.t, err)
-	return result.Value
+	return value
 }
 
-func (n *NodeConfig) QueryGovModuleAccount() string {
+// TODO: Post v26, can be removed
+func (n *NodeConfig) QueryGovModuleAccount(prev26 bool) string {
 	cmd := []string{"osmosisd", "query", "auth", "module-accounts", "--output=json"}
 
 	out, _, err := n.containerManager.ExecCmd(n.t, n.Name, cmd, "", false, false)
@@ -209,10 +224,22 @@ func (n *NodeConfig) QueryGovModuleAccount() string {
 	for _, acc := range result["accounts"] {
 		account, ok := acc.(map[string]interface{})
 		require.True(n.t, ok)
-		if account["name"] == "gov" {
-			moduleAccount, ok := account["base_account"].(map[string]interface{})["address"].(string)
+		if prev26 {
+			if account["name"] == "gov" {
+				baseAccount, ok := account["base_account"].(map[string]interface{})
+				require.True(n.t, ok)
+				moduleAccount, ok := baseAccount["address"].(string)
+				require.True(n.t, ok)
+				return moduleAccount
+			}
+		} else {
+			value, ok := account["value"].(map[string]interface{})
 			require.True(n.t, ok)
-			return moduleAccount
+			if value["name"] == "gov" {
+				moduleAccount, ok := value["address"].(string)
+				require.True(n.t, ok)
+				return moduleAccount
+			}
 		}
 	}
 	require.True(n.t, false, "gov module account not found")
@@ -390,18 +417,6 @@ func (n *NodeConfig) SubmitTextProposal(text string, isExpedited, isLegacy bool)
 func (n *NodeConfig) SubmitTickSpacingReductionProposal(poolTickSpacingRecords string, isExpedited, isLegacy bool) int {
 	cmd := []string{"tick-spacing-decrease-proposal", "--title=\"test tick spacing reduction proposal title\"", "--summary=\"test tick spacing reduction proposal\"", "--from=val", fmt.Sprintf("--pool-tick-spacing-records=%s", poolTickSpacingRecords)}
 	return n.SubmitProposal(cmd, isExpedited, "tick spacing reduction proposal", isLegacy)
-}
-
-func (n *NodeConfig) DepositProposal(proposalNumber int, isExpedited bool) {
-	n.LogActionF("depositing on proposal: %d", proposalNumber)
-	deposit := sdk.NewCoin(appparams.BaseCoinUnit, osmomath.NewInt(config.MinDepositValue)).String()
-	if isExpedited {
-		deposit = sdk.NewCoin(appparams.BaseCoinUnit, osmomath.NewInt(config.MinExpeditedDepositValue)).String()
-	}
-	cmd := []string{"osmosisd", "tx", "gov", "deposit", fmt.Sprintf("%d", proposalNumber), deposit, "--from=val"}
-	_, _, err := n.containerManager.ExecTxCmd(n.t, n.chainId, n.Name, cmd)
-	require.NoError(n.t, err)
-	n.LogActionF("successfully deposited on proposal %d", proposalNumber)
 }
 
 func (n *NodeConfig) VoteYesProposal(from string, proposalNumber int) {
@@ -598,7 +613,7 @@ type resultStatus struct {
 
 func (n *NodeConfig) Status() (resultStatus, error) {
 	cmd := []string{"osmosisd", "status"}
-	_, errBuf, err := n.containerManager.ExecCmd(n.t, n.Name, cmd, "", false, false)
+	outBuf, _, err := n.containerManager.ExecCmd(n.t, n.Name, cmd, "", false, false)
 	if err != nil {
 		return resultStatus{}, err
 	}
@@ -606,7 +621,7 @@ func (n *NodeConfig) Status() (resultStatus, error) {
 	cfg := app.MakeEncodingConfig()
 	legacyAmino := cfg.Amino
 	var result resultStatus
-	err = legacyAmino.UnmarshalJSON(errBuf.Bytes(), &result)
+	err = legacyAmino.UnmarshalJSON(outBuf.Bytes(), &result)
 	fmt.Println("result", result)
 
 	if err != nil {
@@ -733,7 +748,6 @@ func (n *NodeConfig) SendIBCNoMutex(srcChain, dstChain *Config, recipient string
 
 func (n *NodeConfig) EnableSuperfluidAsset(srcChain *Config, denom string, isLegacy bool) {
 	propNumber := n.SubmitSuperfluidProposal(denom, isLegacy)
-	n.DepositProposal(propNumber, false)
 
 	AllValsVoteOnProposal(srcChain, propNumber)
 }
@@ -754,7 +768,7 @@ func (n *NodeConfig) LockAndAddToExistingLock(srcChain *Config, amount osmomath.
 }
 
 // TODO remove chain from this as input
-func (n *NodeConfig) SetupRateLimiting(paths, gov_addr string, chain *Config, isLegacy bool) (string, error) {
+func (n *NodeConfig) SetupRateLimiting(paths, gov_addr string, chain *Config, isLegacy, prev26 bool) (string, error) {
 	srcNode, err := chain.GetNodeAtIndex(1)
 	require.NoError(n.t, err)
 
@@ -797,7 +811,7 @@ func (n *NodeConfig) SetupRateLimiting(paths, gov_addr string, chain *Config, is
 	require.Eventually(
 		n.t,
 		func() bool {
-			val := srcNode.QueryParams(ibcratelimittypes.ModuleName, string(ibcratelimittypes.KeyContractAddress))
+			val := srcNode.QueryParams(ibcratelimittypes.ModuleName, string(ibcratelimittypes.KeyContractAddress), prev26)
 			return strings.Contains(val, contract)
 		},
 		1*time.Minute,

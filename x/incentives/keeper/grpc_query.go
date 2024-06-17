@@ -8,14 +8,15 @@ import (
 	"google.golang.org/grpc/status"
 
 	errorsmod "cosmossdk.io/errors"
-	"github.com/cosmos/cosmos-sdk/store/prefix"
+	"cosmossdk.io/store/prefix"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 
 	"github.com/cosmos/cosmos-sdk/types/query"
 
-	"github.com/osmosis-labs/osmosis/v23/x/incentives/types"
-	lockuptypes "github.com/osmosis-labs/osmosis/v23/x/lockup/types"
+	"github.com/osmosis-labs/osmosis/osmomath"
+	"github.com/osmosis-labs/osmosis/v25/x/incentives/types"
+	lockuptypes "github.com/osmosis-labs/osmosis/v25/x/lockup/types"
 )
 
 var _ types.QueryServer = Querier{}
@@ -305,7 +306,7 @@ func (k Keeper) queryWeightSplitGroup(ctx sdk.Context, group types.Group) ([]typ
 		if updatedGroup.InternalGaugeInfo.TotalWeight.IsZero() {
 			gaugeVolumes[i] = types.GaugeWeight{
 				GaugeId:     gaugeRecord.GaugeId,
-				WeightRatio: sdk.ZeroDec(),
+				WeightRatio: osmomath.ZeroDec(),
 			}
 		} else {
 			gaugeVolumes[i] = types.GaugeWeight{

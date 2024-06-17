@@ -15,8 +15,9 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/osmosis-labs/osmosis/v23/app"
-	"github.com/osmosis-labs/osmosis/v23/app/apptesting"
+	"github.com/osmosis-labs/osmosis/v25/app"
+	"github.com/osmosis-labs/osmosis/v25/app/apptesting"
+	appparams "github.com/osmosis-labs/osmosis/v25/app/params"
 )
 
 func TestNoStorageWithoutProposal(t *testing.T) {
@@ -42,8 +43,6 @@ func storeCodeViaProposal(t *testing.T, ctx sdk.Context, osmosis *app.OsmosisApp
 	wasmCode, err := os.ReadFile("../testdata/hackatom.wasm")
 	require.NoError(t, err)
 
-	// UNFORKING C: It seems the sender needs to be the gov module account, otherwise
-	// when the prop is executed, there can't be two signers on the message.
 	msgStoreCode := wasmtypes.MsgStoreCode{Sender: addr.String(), WASMByteCode: wasmCode, InstantiatePermission: &types.AccessConfig{Permission: types.AccessTypeEverybody}}
 	msgStoreCodeSlice := []sdk.Msg{&msgStoreCode}
 
@@ -107,7 +106,7 @@ func TestInstantiateContract(t *testing.T) {
 	initMsgBz, err := json.Marshal(initMsg)
 	require.NoError(t, err)
 
-	funds := sdk.NewInt64Coin("uosmo", 123456)
+	funds := sdk.NewInt64Coin(appparams.BaseCoinUnit, 123456)
 	_, _, err = contractKeeper.Instantiate(ctx, codeID, instantiator, instantiator, initMsgBz, "demo contract", sdk.Coins{funds})
 	require.NoError(t, err)
 }

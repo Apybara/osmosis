@@ -5,7 +5,7 @@ import (
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/osmosis/osmoutils"
-	appparams "github.com/osmosis-labs/osmosis/v23/app/params"
+	appparams "github.com/osmosis-labs/osmosis/v25/app/params"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	paramtypes "github.com/cosmos/cosmos-sdk/x/params/types"
@@ -65,7 +65,7 @@ func DefaultParams() Params {
 			ReducedFeeWhitelist:                            []string{},
 		},
 		AuthorizedQuoteDenoms: []string{
-			"uosmo",
+			appparams.BaseCoinUnit,
 			"ibc/27394FB092D2ECCD56123C74F36E4C1F926001CEADA9CA97EA622B25F41E5EB2", // ATOM
 			"ibc/0CD3A0285E1341859B5E86B6AB7682F023D03E97607CCC1DC95706411D866DF7", // DAI
 			"ibc/D189335C6E4A68B513C10AB227BF1C1D38C746766278BA3EEB4FB14124F1D858", // USDC
@@ -230,16 +230,16 @@ func validateDenomPairTakerFees(pairs []DenomPairTakerFee) error {
 	}
 
 	for _, record := range pairs {
-		if record.Denom0 == record.Denom1 {
-			return fmt.Errorf("denom0 and denom1 must be different")
+		if record.TokenInDenom == record.TokenOutDenom {
+			return fmt.Errorf("TokenInDenom and TokenOutDenom must be different")
 		}
 
-		if sdk.ValidateDenom(record.Denom0) != nil {
-			return fmt.Errorf("denom0 is invalid: %s", sdk.ValidateDenom(record.Denom0))
+		if sdk.ValidateDenom(record.TokenInDenom) != nil {
+			return fmt.Errorf("TokenInDenom is invalid: %s", sdk.ValidateDenom(record.TokenInDenom))
 		}
 
-		if sdk.ValidateDenom(record.Denom1) != nil {
-			return fmt.Errorf("denom1 is invalid: %s", sdk.ValidateDenom(record.Denom1))
+		if sdk.ValidateDenom(record.TokenOutDenom) != nil {
+			return fmt.Errorf("TokenOutDenom is invalid: %s", sdk.ValidateDenom(record.TokenOutDenom))
 		}
 
 		takerFee := record.TakerFee

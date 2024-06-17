@@ -10,15 +10,16 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
-	"github.com/osmosis-labs/osmosis/v23/app/apptesting"
-	"github.com/osmosis-labs/osmosis/v23/x/protorev"
-	protorevkeeper "github.com/osmosis-labs/osmosis/v23/x/protorev/keeper"
-	"github.com/osmosis-labs/osmosis/v23/x/protorev/types"
+	"github.com/osmosis-labs/osmosis/v25/app/apptesting"
+	"github.com/osmosis-labs/osmosis/v25/x/protorev"
+	protorevkeeper "github.com/osmosis-labs/osmosis/v25/x/protorev/keeper"
+	"github.com/osmosis-labs/osmosis/v25/x/protorev/types"
 
-	"github.com/osmosis-labs/osmosis/v23/x/gamm/pool-models/balancer"
-	"github.com/osmosis-labs/osmosis/v23/x/gamm/pool-models/stableswap"
+	"github.com/osmosis-labs/osmosis/v25/x/gamm/pool-models/balancer"
+	"github.com/osmosis-labs/osmosis/v25/x/gamm/pool-models/stableswap"
 
-	osmosisapp "github.com/osmosis-labs/osmosis/v23/app"
+	osmosisapp "github.com/osmosis-labs/osmosis/v25/app"
+	appparams "github.com/osmosis-labs/osmosis/v25/app/params"
 )
 
 type KeeperTestSuite struct {
@@ -55,49 +56,24 @@ func TestKeeperTestSuite(t *testing.T) {
 	suite.Run(t, new(KeeperTestSuite))
 }
 
-func (s *KeeperTestSuite) SetupTest() {
+func (s *KeeperTestSuite) SetupNoPools() {
 	s.Setup()
+	s.setupParams()
 
-	// Genesis on init should be the same as the default genesis
-	exportDefaultGenesis := s.App.ProtoRevKeeper.ExportGenesis(s.Ctx)
-	s.Require().Equal(exportDefaultGenesis, types.DefaultGenesis())
+	queryHelper := baseapp.NewQueryServerTestHelper(s.Ctx, s.App.InterfaceRegistry())
+	types.RegisterQueryServer(queryHelper, protorevkeeper.NewQuerier(*s.App.AppKeepers.ProtoRevKeeper))
+	s.queryClient = types.NewQueryClient(queryHelper)
+}
 
-	// Init module state for testing (params may differ from default params)
-	s.App.ProtoRevKeeper.SetProtoRevEnabled(s.Ctx, true)
-	s.App.ProtoRevKeeper.SetDaysSinceModuleGenesis(s.Ctx, 0)
-	s.App.ProtoRevKeeper.SetLatestBlockHeight(s.Ctx, uint64(s.Ctx.BlockHeight()))
-	s.App.ProtoRevKeeper.SetPointCountForBlock(s.Ctx, 0)
+func (s *KeeperTestSuite) SetupTest() {
+	s.SetupNoPools()
+}
 
-	// Configure max pool points per block. This roughly correlates to the ms of execution time protorev will
-	// take per block
-	if err := s.App.ProtoRevKeeper.SetMaxPointsPerBlock(s.Ctx, 100); err != nil {
-		panic(err)
-	}
-	// Configure max pool points per tx. This roughly correlates to the ms of execution time protorev will take
-	// per tx
-	if err := s.App.ProtoRevKeeper.SetMaxPointsPerTx(s.Ctx, 18); err != nil {
-		panic(err)
-	}
+func (s *KeeperTestSuite) SetupPoolsTest() {
+	s.Setup()
+	s.setupParams()
 
-	// Configure the initial base denoms used for cyclic route building
-	baseDenomPriorities := []types.BaseDenom{
-		{
-			Denom:    types.OsmosisDenomination,
-			StepSize: osmomath.NewInt(1_000_000),
-		},
-		{
-			Denom:    "Atom",
-			StepSize: osmomath.NewInt(1_000_000),
-		},
-		{
-			Denom:    "ibc/0CD3A0285E1341859B5E86B6AB7682F023D03E97607CCC1DC95706411D866DF7",
-			StepSize: osmomath.NewInt(1_000_000),
-		},
-	}
-	err := s.App.ProtoRevKeeper.SetBaseDenoms(s.Ctx, baseDenomPriorities)
-	s.Require().NoError(err)
-
-	encodingConfig := osmosisapp.MakeEncodingConfig()
+	encodingConfig := osmosisapp.GetEncodingConfig()
 	s.clientCtx = client.Context{}.
 		WithInterfaceRegistry(encodingConfig.InterfaceRegistry).
 		WithTxConfig(encodingConfig.TxConfig).
@@ -139,7 +115,6 @@ func (s *KeeperTestSuite) SetupTest() {
 		sdk.NewCoin("stake", osmomath.NewInt(9000000000000000000)),
 	)
 	s.fundAllAccountsWith()
-	s.Commit()
 
 	// Init pools
 	s.setUpPools()
@@ -149,14 +124,55 @@ func (s *KeeperTestSuite) SetupTest() {
 	s.setUpTokenPairRoutes()
 	s.Commit()
 
-	// Set the Admin Account
-	s.adminAccount = apptesting.CreateRandomAccounts(1)[0]
-	err = protorev.HandleSetProtoRevAdminAccount(s.Ctx, *s.App.ProtoRevKeeper, &types.SetProtoRevAdminAccountProposal{Account: s.adminAccount.String()})
-	s.Require().NoError(err)
-
 	queryHelper := baseapp.NewQueryServerTestHelper(s.Ctx, s.App.InterfaceRegistry())
 	types.RegisterQueryServer(queryHelper, protorevkeeper.NewQuerier(*s.App.AppKeepers.ProtoRevKeeper))
 	s.queryClient = types.NewQueryClient(queryHelper)
+}
+
+func (s *KeeperTestSuite) setupParams() {
+	// Genesis on init should be the same as the default genesis
+	exportDefaultGenesis := s.App.ProtoRevKeeper.ExportGenesis(s.Ctx)
+	s.Require().Equal(exportDefaultGenesis, types.DefaultGenesis())
+
+	// Init module state for testing (params may differ from default params)
+	s.App.ProtoRevKeeper.SetProtoRevEnabled(s.Ctx, true)
+	s.App.ProtoRevKeeper.SetDaysSinceModuleGenesis(s.Ctx, 0)
+	s.App.ProtoRevKeeper.SetLatestBlockHeight(s.Ctx, uint64(s.Ctx.BlockHeight()))
+	s.App.ProtoRevKeeper.SetPointCountForBlock(s.Ctx, 0)
+
+	// Configure max pool points per block. This roughly correlates to the ms of execution time protorev will
+	// take per block
+	if err := s.App.ProtoRevKeeper.SetMaxPointsPerBlock(s.Ctx, 100); err != nil {
+		panic(err)
+	}
+	// Configure max pool points per tx. This roughly correlates to the ms of execution time protorev will take
+	// per tx
+	if err := s.App.ProtoRevKeeper.SetMaxPointsPerTx(s.Ctx, 18); err != nil {
+		panic(err)
+	}
+
+	// Set the Admin Account
+	s.adminAccount = apptesting.CreateRandomAccounts(1)[0]
+	err := protorev.HandleSetProtoRevAdminAccount(s.Ctx, *s.App.ProtoRevKeeper, &types.SetProtoRevAdminAccountProposal{Account: s.adminAccount.String()})
+	s.Require().NoError(err)
+
+	// Configure the initial base denoms used for cyclic route building
+	baseDenomPriorities := []types.BaseDenom{
+		{
+			Denom:    types.OsmosisDenomination,
+			StepSize: osmomath.NewInt(1_000_000),
+		},
+		{
+			Denom:    "Atom",
+			StepSize: osmomath.NewInt(1_000_000),
+		},
+		{
+			Denom:    "ibc/0CD3A0285E1341859B5E86B6AB7682F023D03E97607CCC1DC95706411D866DF7",
+			StepSize: osmomath.NewInt(1_000_000),
+		},
+	}
+	err = s.App.ProtoRevKeeper.SetBaseDenoms(s.Ctx, baseDenomPriorities)
+	s.Require().NoError(err)
 }
 
 // setUpPools sets up the pools needed for testing
@@ -605,7 +621,7 @@ func (s *KeeperTestSuite) setUpPools() {
 		{ // Pool 29
 			PoolAssets: []balancer.PoolAsset{
 				{
-					Token:  sdk.NewCoin("uosmo", osmomath.NewInt(1000000000)),
+					Token:  sdk.NewCoin(appparams.BaseCoinUnit, osmomath.NewInt(1000000000)),
 					Weight: osmomath.NewInt(1),
 				},
 				{
@@ -620,7 +636,7 @@ func (s *KeeperTestSuite) setUpPools() {
 		{ // Pool 30
 			PoolAssets: []balancer.PoolAsset{
 				{
-					Token:  sdk.NewCoin("uosmo", osmomath.NewInt(1000000000)),
+					Token:  sdk.NewCoin(appparams.BaseCoinUnit, osmomath.NewInt(1000000000)),
 					Weight: osmomath.NewInt(1),
 				},
 				{
@@ -853,7 +869,7 @@ func (s *KeeperTestSuite) setUpPools() {
 		{ // Pool 46 - Used for epoch_hook UpdateHighestLiquidityPool testing
 			initialLiquidity: sdk.NewCoins(
 				sdk.NewCoin("epochOne", osmomath.NewInt(1000)),
-				sdk.NewCoin("uosmo", osmomath.NewInt(1000)),
+				sdk.NewCoin(appparams.BaseCoinUnit, osmomath.NewInt(1000)),
 			),
 			poolParams: stableswap.PoolParams{
 				SwapFee: osmomath.NewDecWithPrec(1, 4),
@@ -864,7 +880,7 @@ func (s *KeeperTestSuite) setUpPools() {
 		{ // Pool 47 - Used for epoch_hook UpdateHighestLiquidityPool testing
 			initialLiquidity: sdk.NewCoins(
 				sdk.NewCoin("epochOne", osmomath.NewInt(1000)),
-				sdk.NewCoin("uosmo", osmomath.NewInt(2000)),
+				sdk.NewCoin(appparams.BaseCoinUnit, osmomath.NewInt(2000)),
 			),
 			poolParams: stableswap.PoolParams{
 				SwapFee: osmomath.NewDecWithPrec(1, 4),
@@ -875,7 +891,7 @@ func (s *KeeperTestSuite) setUpPools() {
 		{ // Pool 48 - Used for epoch_hook UpdateHighestLiquidityPool testing
 			initialLiquidity: sdk.NewCoins(
 				sdk.NewCoin("epochTwo", osmomath.NewInt(1000)),
-				sdk.NewCoin("uosmo", osmomath.NewInt(1000)),
+				sdk.NewCoin(appparams.BaseCoinUnit, osmomath.NewInt(1000)),
 			),
 			poolParams: stableswap.PoolParams{
 				SwapFee: osmomath.NewDecWithPrec(1, 4),
@@ -885,7 +901,7 @@ func (s *KeeperTestSuite) setUpPools() {
 		},
 		{ // Pool 49 - Used for CL testing
 			initialLiquidity: sdk.NewCoins(
-				sdk.NewCoin("uosmo", osmomath.NewInt(10_000_000_000_000)),
+				sdk.NewCoin(appparams.BaseCoinUnit, osmomath.NewInt(10_000_000_000_000)),
 				sdk.NewCoin("epochTwo", osmomath.NewInt(8_000_000_000_000)),
 			),
 			poolParams: stableswap.PoolParams{
@@ -902,7 +918,7 @@ func (s *KeeperTestSuite) setUpPools() {
 
 	// Create a concentrated liquidity pool for epoch_hook testing
 	// Pool 50
-	s.PrepareConcentratedPoolWithCoinsAndFullRangePosition("epochTwo", "uosmo")
+	s.PrepareConcentratedPoolWithCoinsAndFullRangePosition("epochTwo", appparams.BaseCoinUnit)
 
 	// Create a cosmwasm pool for testing
 	// Pool 51
@@ -1008,16 +1024,16 @@ func (s *KeeperTestSuite) setUpPools() {
 	// Create a concentrated liquidity pool for range testing
 	// Pool 58
 	// Create the CL pool
-	clPool := s.PrepareCustomConcentratedPool(s.TestAccs[0], "epochTwo", "uosmo", apptesting.DefaultTickSpacing, osmomath.ZeroDec())
-	fundCoins := sdk.NewCoins(sdk.NewCoin("epochTwo", osmomath.NewInt(10_000_000_000_000)), sdk.NewCoin("uosmo", osmomath.NewInt(10_000_000_000_000)))
+	clPool := s.PrepareCustomConcentratedPool(s.TestAccs[0], "epochTwo", appparams.BaseCoinUnit, apptesting.DefaultTickSpacing, osmomath.ZeroDec())
+	fundCoins := sdk.NewCoins(sdk.NewCoin("epochTwo", osmomath.NewInt(10_000_000_000_000)), sdk.NewCoin(appparams.BaseCoinUnit, osmomath.NewInt(10_000_000_000_000)))
 	s.FundAcc(s.TestAccs[0], fundCoins)
 	s.CreateFullRangePosition(clPool, fundCoins)
 
 	// Create a concentrated liquidity pool for range testing
 	// Pool 59
 	// Create the CL pool
-	clPool = s.PrepareCustomConcentratedPool(s.TestAccs[0], "epochTwo", "uosmo", apptesting.DefaultTickSpacing, osmomath.ZeroDec())
-	fundCoins = sdk.NewCoins(sdk.NewCoin("epochTwo", osmomath.NewInt(2_000_000_000)), sdk.NewCoin("uosmo", osmomath.NewInt(1_000_000_000)))
+	clPool = s.PrepareCustomConcentratedPool(s.TestAccs[0], "epochTwo", appparams.BaseCoinUnit, apptesting.DefaultTickSpacing, osmomath.ZeroDec())
+	fundCoins = sdk.NewCoins(sdk.NewCoin("epochTwo", osmomath.NewInt(2_000_000_000)), sdk.NewCoin(appparams.BaseCoinUnit, osmomath.NewInt(1_000_000_000)))
 	s.FundAcc(s.TestAccs[0], fundCoins)
 	s.CreateFullRangePosition(clPool, fundCoins)
 
@@ -1028,12 +1044,12 @@ func (s *KeeperTestSuite) setUpPools() {
 
 func (s *KeeperTestSuite) CreateCLPoolAndArbRouteWith_28000_Ticks() {
 	// Create the CL pool
-	clPool := s.PrepareCustomConcentratedPool(s.TestAccs[2], "ibc/0CD3A0285E1341859B5E86B6AB7682F023D03E97607CCC1DC95706411D866DF7", "uosmo", 100, osmomath.NewDecWithPrec(2, 3))
-	fundCoins := sdk.NewCoins(sdk.NewCoin("uosmo", osmomath.NewInt(1000000000000000000)), sdk.NewCoin("ibc/0CD3A0285E1341859B5E86B6AB7682F023D03E97607CCC1DC95706411D866DF7", osmomath.NewInt(1000000000000000000)))
+	clPool := s.PrepareCustomConcentratedPool(s.TestAccs[2], "ibc/0CD3A0285E1341859B5E86B6AB7682F023D03E97607CCC1DC95706411D866DF7", appparams.BaseCoinUnit, 100, osmomath.NewDecWithPrec(2, 3))
+	fundCoins := sdk.NewCoins(sdk.NewCoin(appparams.BaseCoinUnit, osmomath.NewInt(1000000000000000000)), sdk.NewCoin("ibc/0CD3A0285E1341859B5E86B6AB7682F023D03E97607CCC1DC95706411D866DF7", osmomath.NewInt(1000000000000000000)))
 	s.FundAcc(s.TestAccs[2], fundCoins)
 
 	// Create 28000 ticks in the CL pool, 14000 on each side
-	tokensProvided := sdk.NewCoins(sdk.NewCoin("uosmo", osmomath.NewInt(100000)), sdk.NewCoin("ibc/0CD3A0285E1341859B5E86B6AB7682F023D03E97607CCC1DC95706411D866DF7", osmomath.NewInt(100000)))
+	tokensProvided := sdk.NewCoins(sdk.NewCoin(appparams.BaseCoinUnit, osmomath.NewInt(100000)), sdk.NewCoin("ibc/0CD3A0285E1341859B5E86B6AB7682F023D03E97607CCC1DC95706411D866DF7", osmomath.NewInt(100000)))
 	amount0Min := osmomath.NewInt(0)
 	amount1Min := osmomath.NewInt(0)
 	lowerTick := int64(0)
@@ -1047,7 +1063,7 @@ func (s *KeeperTestSuite) CreateCLPoolAndArbRouteWith_28000_Ticks() {
 	// Set 2-pool hot route between new CL pool and respective Balancer
 	s.App.ProtoRevKeeper.SetTokenPairArbRoutes(
 		s.Ctx,
-		"uosmo",
+		appparams.BaseCoinUnit,
 		"ibc/0CD3A0285E1341859B5E86B6AB7682F023D03E97607CCC1DC95706411D866DF7",
 		types.NewTokenPairArbRoutes(
 			[]types.Route{
@@ -1055,19 +1071,19 @@ func (s *KeeperTestSuite) CreateCLPoolAndArbRouteWith_28000_Ticks() {
 					Trades: []types.Trade{
 						{
 							Pool:     38,
-							TokenIn:  "uosmo",
+							TokenIn:  appparams.BaseCoinUnit,
 							TokenOut: "ibc/0CD3A0285E1341859B5E86B6AB7682F023D03E97607CCC1DC95706411D866DF7",
 						},
 						{
 							Pool:     0,
 							TokenIn:  "ibc/0CD3A0285E1341859B5E86B6AB7682F023D03E97607CCC1DC95706411D866DF7",
-							TokenOut: "uosmo",
+							TokenOut: appparams.BaseCoinUnit,
 						},
 					},
 					StepSize: osmomath.NewInt(100000),
 				},
 			},
-			"uosmo",
+			appparams.BaseCoinUnit,
 			"ibc/0CD3A0285E1341859B5E86B6AB7682F023D03E97607CCC1DC95706411D866DF7",
 		),
 	)

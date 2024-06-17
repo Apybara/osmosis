@@ -44,29 +44,174 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### State Breaking
 
+* [#8169](https://github.com/osmosis-labs/osmosis/pull/8169) [#8250](https://github.com/osmosis-labs/osmosis/pull/8250) [#8276](https://github.com/osmosis-labs/osmosis/pull/8276) [#8320](https://github.com/osmosis-labs/osmosis/pull/8320) Support non-pool assets in superfluid staking.
+* [#8274](https://github.com/osmosis-labs/osmosis/pull/8274) SDK v50 and Comet v0.38 upgrade
+* [#8358](https://github.com/osmosis-labs/osmosis/pull/8358) Set MinDepositRatio gov param to 1 percent for sdk v50 upgrade
+* [#8344](https://github.com/osmosis-labs/osmosis/pull/8344) Uni-directional trading pair taker fee overrides
+* [#8355](https://github.com/osmosis-labs/osmosis/pull/8355) [smartaccount] fix: fee payer charged on every message
+
+### State Compatible
+
+## v25.0.3
+
+* [#8329](https://github.com/osmosis-labs/osmosis/pull/8329) Overwrite `flush_throttle_timeout` to 80ms instead of 10ms
+
+## v25.0.2
+
+### Osmosis
+
+* [#8312](https://github.com/osmosis-labs/osmosis/pull/8312) Overwrite `flush_throttle_timeout` and `peer_gossip_sleep_duration` to 10ms and 50ms respectively
+* [#8308](https://github.com/osmosis-labs/osmosis/pull/8308) Remove IBC rate limit and wasm hook times from mempool checkTx's
+
+### CometBFT
+
+* [#73](https://github.com/osmosis-labs/cometbft/pull/73) perf(consensus/blockexec): Add simplistic block validation cache
+* [#74](https://github.com/osmosis-labs/cometbft/pull/74) perf(consensus): Minor speedup to mark late vote metrics
+* [#75](https://github.com/osmosis-labs/cometbft/pull/75) perf(p2p): 4% speedup to readMsg by removing one allocation
+* [#76](https://github.com/osmosis-labs/cometbft/pull/76) perf(consensus): Add LRU caches for blockstore operations used in gossip
+* [#77](https://github.com/osmosis-labs/cometbft/pull/77) perf(consensus): Make every gossip thread use its own randomness instance, reducing mutex contention
+
+## v25.0.1
+
+### Osmosis
+
+* [#8293](https://github.com/osmosis-labs/osmosis/pull/8293) Upgrade v25.x to IBC v7.4.1
+* [#8128](https://github.com/osmosis-labs/osmosis/pull/8128) Cache the result for poolmanager.GetPoolModule
+* [#8253](https://github.com/osmosis-labs/osmosis/pull/8253) Update gogoproto to v1.4.11 and golang.org/x/exp to
+* [#8148](https://github.com/osmosis-labs/osmosis/pull/8148) Remove the deserialization time for GetDefaultTakerFee()
+* [#8231](https://github.com/osmosis-labs/osmosis/issues/8231) Deprecate authorized quote denom in CL module
+* [#8298](https://github.com/osmosis-labs/osmosis/pull/8298) Overwrite timeout commit from 1.5s to 1s
+
+### CometBFT
+
+* [#61](https://github.com/osmosis-labs/cometbft/pull/61) refactor(p2p/connection): Slight refactor to sendManyPackets that helps highlight performance improvements (backport #2953) (#2978)
+* [#62](https://github.com/osmosis-labs/cometbft/pull/62) perf(consensus/blockstore): Remove validate basic call from LoadBlock
+* [#69](https://github.com/osmosis-labs/cometbft/pull/69) perf: Make mempool update async from block.Commit (#3008)
+* [#67](https://github.com/osmosis-labs/cometbft/pull/67) fix: TimeoutTicker returns wrong value/timeout pair when timeouts are scheduled at the same time
+
+### IBC-go
+
+* Upgrade to v7.4.1 which fixes the significant mempool overhead caused by RedundantRelayDecorator
+
+## v25.0.0
+
+### State Breaking
+
+* [#7935](https://github.com/osmosis-labs/osmosis/pull/7935) Add block sdk and top of block auction from skip-mev
+* [#7876](https://github.com/osmosis-labs/osmosis/pull/7876) Migrate subset of spread reward accumulators
+* [#7005](https://github.com/osmosis-labs/osmosis/pull/7005) Adding deactivated smart account module
+* [#8106](https://github.com/osmosis-labs/osmosis/pull/8106) Enable ProtoRev distro on epoch
+* [#8053](https://github.com/osmosis-labs/osmosis/pull/8053) Reset validator signing info missed blocks counter
+* [#8073](https://github.com/osmosis-labs/osmosis/pull/8073) Speedup CL spread factor calculations, but mildly changes rounding behavior in the final decimal place
+* [#8125](https://github.com/osmosis-labs/osmosis/pull/8125) When using smart accounts, fees are deducted directly after the feePayer is authenticated. Regardless of the authentication of other signers
+* [#8136](https://github.com/osmosis-labs/osmosis/pull/8136) Don't allow gauge creation/addition with rewards that have no protorev route (i.e. no way to determine if rewards meet minimum epoch value distribution requirements)
+* [#8144](https://github.com/osmosis-labs/osmosis/pull/8144) IBC wasm clients can now make stargate queries and support abort
+* [#8147](https://github.com/osmosis-labs/osmosis/pull/8147) Process unbonding locks once per minute, rather than every single block
+* [#8157](https://github.com/osmosis-labs/osmosis/pull/8157) Speedup protorev by not unmarshalling pools in cost-estimation phase
+* [#8177](https://github.com/osmosis-labs/osmosis/pull/8177) Change consensus params to match unbonding period
+* [#8189](https://github.com/osmosis-labs/osmosis/pull/8189) Perf: Use local cache for isSmartAccountActive param
+* [#8216](https://github.com/osmosis-labs/osmosis/pull/8216) Chore: Add circuit breaker controller to smart account params
+
+### State Compatible
+
+* [#35](https://github.com/osmosis-labs/cometbft/pull/35) Handle last element in PickRandom
+* [#38](https://github.com/osmosis-labs/cometbft/pull/38) Remove expensive Logger debug call in PublishEventTx
+* [#39](https://github.com/osmosis-labs/cometbft/pull/39) Change finalizeCommit to use applyVerifiedBlock
+* [#40](https://github.com/osmosis-labs/cometbft/pull/40) Speedup NewDelimitedWriter
+* [#41](https://github.com/osmosis-labs/cometbft/pull/41) Remove unnecessary atomic read
+* [#42](https://github.com/osmosis-labs/cometbft/pull/42) Remove a minint call that was appearing in write packet delays
+* [#43](https://github.com/osmosis-labs/cometbft/pull/43) Speedup extended commit.BitArray()
+* [#8226](https://github.com/osmosis-labs/osmosis/pull/8226) Overwrite timeoutPropose from 3s to 2s
+
+## v24.0.4
+
+* [#8142](https://github.com/osmosis-labs/osmosis/pull/8142) Add query for getting single authenticator and add stargate whitelist for the query
+* [#8149](https://github.com/osmosis-labs/osmosis/pull/8149) Default timeoutCommit to 1.5s
+
+## v24.0.3
+
+* [#21](https://github.com/osmosis-labs/cometbft/pull/21) Move websocket logs to Debug
+* [#22](https://github.com/osmosis-labs/cometbft/pull/22) Fix txSearch pagination performance issues
+* [#25](https://github.com/osmosis-labs/cometbft/pull/25) Optimize merkle tree hashing
+
+## v24.0.2
+
+* [#8006](https://github.com/osmosis-labs/osmosis/pull/8006), [#8014](https://github.com/osmosis-labs/osmosis/pull/8014) Speedup many BigDec operations
+* [#8030](https://github.com/osmosis-labs/osmosis/pull/8030) Delete legacy behavior where lockups could not unbond at very small block heights on a testnet
+* [#8118](https://github.com/osmosis-labs/osmosis/pull/8118) Config.toml and app.toml overwrite improvements
+* [#8131](https://github.com/osmosis-labs/osmosis/pull/8131) Overwrite min-gas-prices to 0uosmo (defaulting to the EIP 1559 calculated value) to combat empty blocks
+
+## v24.0.1
+
+* [#7994](https://github.com/osmosis-labs/osmosis/pull/7994) Async pruning for IAVL v1
+
+## v24.0.0
+
+### Osmosis
+
 * [#7250](https://github.com/osmosis-labs/osmosis/pull/7250) Further filter spam gauges from epoch distribution
 * [#7472](https://github.com/osmosis-labs/osmosis/pull/7472) Refactor TWAP keys to only require a single key format. Significantly lowers TWAP-caused writes
 * [#7499](https://github.com/osmosis-labs/osmosis/pull/7499) Slight speed/gas improvements to CL CreatePosition and AddToPosition
 * [#7564](https://github.com/osmosis-labs/osmosis/pull/7564) Move protorev dev account bank sends from every backrun to once per epoch
-* [#7508](https://github.com/osmosis-labs/osmosis/pull/7508) Improve protorev performance by removing iterator and storing base denoms as a single object rather than an array.
+* [#7508](https://github.com/osmosis-labs/osmosis/pull/7508) Improve protorev performance by removing iterator and storing base denoms as a single object rather than an array
 * [#7509](https://github.com/osmosis-labs/osmosis/pull/7509) Distributing ProtoRev profits to the community pool and burn address
-* [#7524](https://github.com/osmosis-labs/osmosis/pull/7524) Poolmanager: ListPoolsByDenom will now skip pools that cannot correctly return their constituent denoms.
-* [#7550](https://github.com/osmosis-labs/osmosis/pull/7550) Speedup small CL swaps, by only fetching CL uptime accumulators if there is a tick crossing.
+* [#7524](https://github.com/osmosis-labs/osmosis/pull/7524) Poolmanager: ListPoolsByDenom will now skip pools that cannot correctly return their constituent denoms
+* [#7550](https://github.com/osmosis-labs/osmosis/pull/7550) Speedup small CL swaps, by only fetching CL uptime accumulators if there is a tick crossing
 * [#7555](https://github.com/osmosis-labs/osmosis/pull/7555) Refactor taker fees, distribute via a single module account, track once at epoch
-* [#7562](https://github.com/osmosis-labs/osmosis/pull/7562) Speedup Protorev estimation logic by removing unnecessary taker fee simulations.
-* [#7595](https://github.com/osmosis-labs/osmosis/pull/7595) Fix cosmwasm pool model code ID migration.
-* [#7615](https://github.com/osmosis-labs/osmosis/pull/7615) Min value param for epoch distribution.
+* [#7562](https://github.com/osmosis-labs/osmosis/pull/7562) Speedup Protorev estimation logic by removing unnecessary taker fee simulations
+* [#7595](https://github.com/osmosis-labs/osmosis/pull/7595) Fix cosmwasm pool model code ID migration
+* [#7615](https://github.com/osmosis-labs/osmosis/pull/7615) Min value param for epoch distribution
 * [#7619](https://github.com/osmosis-labs/osmosis/pull/7619) Slight speedup/gas improvement to CL GetTotalPoolLiquidity queries
-* [#7622](https://github.com/osmosis-labs/osmosis/pull/7622) Create/remove tick events.
+* [#7622](https://github.com/osmosis-labs/osmosis/pull/7622) Create/remove tick events
 * [#7623](https://github.com/osmosis-labs/osmosis/pull/7623) Add query for querying all before send hooks
-* [#7651](https://github.com/osmosis-labs/osmosis/pull/7651) Remove 1W and 2W supported uptimes for performance.
-* [#7625](https://github.com/osmosis-labs/osmosis/pull/7625) Remove duplicate CL accumulator update logic.
-* [#7665](https://github.com/osmosis-labs/osmosis/pull/7665) feat(x/protorev): Use Transient store to store swap backruns.
-* [#7685](https://github.com/osmosis-labs/osmosis/pull/7685) Speedup CL actions by only marshalling for CL hooks if they will be used.
+* [#7622](https://github.com/osmosis-labs/osmosis/pull/7622) Remove duplicate CL accumulator update logic
+* [#7665](https://github.com/osmosis-labs/osmosis/pull/7665) feat(x/protorev): Use Transient store to store swap backruns
+* [#7685](https://github.com/osmosis-labs/osmosis/pull/7685) Speedup CL actions by only marshalling for CL hooks if they will be used
 * [#7503](https://github.com/osmosis-labs/osmosis/pull/7503) Add IBC wasm light clients module
 * [#7689](https://github.com/osmosis-labs/osmosis/pull/7689) Make CL price estimations not cause state writes (speed and gas improvements)
 * [#7745](https://github.com/osmosis-labs/osmosis/pull/7745) Add gauge id query to stargate whitelist
 * [#7747](https://github.com/osmosis-labs/osmosis/pull/7747) Remove redundant call to incentive collection in CL position withdrawal logic
+* [#7768](https://github.com/osmosis-labs/osmosis/pull/7768) Allow governance module account to transfer any CL position
+* [#7746](https://github.com/osmosis-labs/osmosis/pull/7746) Make forfeited incentives redeposit into the pool instead of sending to community pool
+* [#7785](https://github.com/osmosis-labs/osmosis/pull/7785) Remove reward claiming during position transfers
+* [#7833](https://github.com/osmosis-labs/osmosis/pull/7833) Bump max gas wanted per tx to 60 mil
+* [#7839](https://github.com/osmosis-labs/osmosis/pull/7839) Add ICA controller
+* [#7527](https://github.com/osmosis-labs/osmosis/pull/7527) Add 30M gas limit to CW pool contract calls
+* [#7855](https://github.com/osmosis-labs/osmosis/pull/7855) Whitelist address parameter for setting fee tokens
+* [#7857](https://github.com/osmosis-labs/osmosis/pull/7857) SuperfluidDelegationsByValidatorDenom query now returns equivalent staked amount
+* [#7912](https://github.com/osmosis-labs/osmosis/pull/7912) Default timeoutCommit to 2s
+* [#7951](https://github.com/osmosis-labs/osmosis/pull/7951) Only migrate selected cl incentives
+* [#7938](https://github.com/osmosis-labs/osmosis/pull/7938) Add missing swap events for missing swap event for cw pools
+* [#7957](https://github.com/osmosis-labs/osmosis/pull/7957) Update to the latest version of ibc-go
+* [#7966](https://github.com/osmosis-labs/osmosis/pull/7966) Update all governance migrated white whale pools to code id 641
+
+### SDK
+
+* [#525](https://github.com/osmosis-labs/cosmos-sdk/pull/525) CacheKV speedups
+* [#548](https://github.com/osmosis-labs/cosmos-sdk/pull/548) Implement v0.50 slashing bitmap logic
+* [#543](https://github.com/osmosis-labs/cosmos-sdk/pull/543) Make slashing not write sign info every block
+* [#513](https://github.com/osmosis-labs/cosmos-sdk/pull/513) Limit expired authz grant pruning to 200 per block
+* [#514](https://github.com/osmosis-labs/cosmos-sdk/pull/514) Let gov hooks return an error
+* [#580](https://github.com/osmosis-labs/cosmos-sdk/pull/580) Less time intensive slashing migration
+
+### CometBFT
+
+* [#5](https://github.com/osmosis-labs/cometbft/pull/5) Batch verification
+* [#11](https://github.com/osmosis-labs/cometbft/pull/11) Skip verification of commit sigs
+* [#13](https://github.com/osmosis-labs/cometbft/pull/13) Avoid double-saving ABCI responses
+* [#20](https://github.com/osmosis-labs/cometbft/pull/20) Fix the rollback command
+
+## v23.0.12-iavl-v1
+
+* [#7994](https://github.com/osmosis-labs/osmosis/pull/7994) Async pruning for IAVL v1
+
+## v23.0.11-iavl-v1 & v23.0.11
+
+* [#7987](https://github.com/osmosis-labs/osmosis/pull/7987) Added soft-forked-ibc for ASA-2024-007
+
+## v23.0.8-iavl-v1 & v23.0.8
+
+* [#7769](https://github.com/osmosis-labs/osmosis/pull/7769) Set and default timeout commit to 3s. Add flag to prevent custom overrides if not desired.
 
 ## v23.0.7-iavl-v1
 
@@ -416,8 +561,8 @@ Epoch optimizations are in this release, see a subset of PR links in v21.1.3 sec
 
 * [#6256](https://github.com/osmosis-labs/osmosis/pull/6256) Refactor CalcPriceToTick to operate on BigDec price to support new price range.
 * [#6317](https://github.com/osmosis-labs/osmosis/pull/6317) Remove price return from CL `math.TickToSqrtPrice`
-* [#6368](https://github.com/osmosis-labs/osmosis/pull/6368) Convert priceLimit API in CL swaps to BigDec 
-* [#6371](https://github.com/osmosis-labs/osmosis/pull/6371) Change PoolI.SpotPrice API from Dec (18 decimals) to BigDec (36 decimals), maintain state-compatibility. 
+* [#6368](https://github.com/osmosis-labs/osmosis/pull/6368) Convert priceLimit API in CL swaps to BigDec
+* [#6371](https://github.com/osmosis-labs/osmosis/pull/6371) Change PoolI.SpotPrice API from Dec (18 decimals) to BigDec (36 decimals), maintain state-compatibility.
 * [#6388](https://github.com/osmosis-labs/osmosis/pull/6388) Make cosmwasmpool's create pool cli generic
 * [#6238] switch osmomath to sdkmath types and rename BigDec constructors to contain "Big" in the name.
 
@@ -499,14 +644,14 @@ Fixes mainnet bugs w/ incorrect accumulation sumtrees, and CL handling for a bal
 * [#5901](https://github.com/osmosis-labs/osmosis/pull/5901) Adding support for CW pools in ProtoRev
 * [#5937](https://github.com/osmosis-labs/osmosis/pull/5937) feat: add SetScalingFactorController gov prop
 * [#5949](https://github.com/osmosis-labs/osmosis/pull/5949) Add message to convert from superfluid / locks to native staking directly.
-* [#5939](https://github.com/osmosis-labs/osmosis/pull/5939) Fix: Flip existing twapRecords base/quote price denoms 
+* [#5939](https://github.com/osmosis-labs/osmosis/pull/5939) Fix: Flip existing twapRecords base/quote price denoms
 * [#5938](https://github.com/osmosis-labs/osmosis/pull/5938) Chore: Fix valset amino codec
 
 ### BugFix
 
 * [#5831](https://github.com/osmosis-labs/osmosis/pull/5831) Fix superfluid_delegations query
 * [#5835](https://github.com/osmosis-labs/osmosis/pull/5835) Fix println's for "amountZeroInRemainingBigDec before fee" making it into production
-* [#5841](https://github.com/osmosis-labs/osmosis/pull/5841) Fix protorev's out of gas erroring of the user's transcation.
+* [#5841](https://github.com/osmosis-labs/osmosis/pull/5841) Fix protorev's out of gas erroring of the user's transaction.
 * [#5930](https://github.com/osmosis-labs/osmosis/pull/5930) Updating Protorev Binary Search Range Logic with CL Pools
 * [#5950](https://github.com/osmosis-labs/osmosis/pull/5950) fix: spot price for cosmwasm pool types
 
@@ -543,7 +688,7 @@ Fixes mainnet bugs w/ incorrect accumulation sumtrees, and CL handling for a bal
 
 ### Features
 
-* [#5796](https://github.com/osmosis-labs/osmosis/pull/5796) chore: add missing cli queries CL 
+* [#5796](https://github.com/osmosis-labs/osmosis/pull/5796) chore: add missing cli queries CL
 
 ### Misc Improvements & Bug Fixes
 
@@ -761,13 +906,13 @@ This release's main features are utility helpers for smart contract developers. 
 * [#3609](https://github.com/osmosis-labs/osmosis/pull/3609) Add Downtime-detection module.
 * [#2788](https://github.com/osmosis-labs/osmosis/pull/2788) Add logarithm base 2 implementation.
 * [#3677](https://github.com/osmosis-labs/osmosis/pull/3677) Add methods for cloning and mutative multiplication on osmomath.BigDec.
-* [#3676](https://github.com/osmosis-labs/osmosis/pull/3676) implement `PowerInteger` function on `osmomath.BigDec` 
+* [#3676](https://github.com/osmosis-labs/osmosis/pull/3676) implement `PowerInteger` function on `osmomath.BigDec`
 * [#3678](https://github.com/osmosis-labs/osmosis/pull/3678) implement mutative `PowerIntegerMut` function on `osmomath.BigDec`.
 * [#3708](https://github.com/osmosis-labs/osmosis/pull/3708) `Exp2` function to compute 2^decimal.
 * [#3693](https://github.com/osmosis-labs/osmosis/pull/3693) Add `EstimateSwapExactAmountOut` query to stargate whitelist
 * [#3731](https://github.com/osmosis-labs/osmosis/pull/3731) BigDec Power functions with decimal exponent.
 * [#3847](https://github.com/osmosis-labs/osmosis/pull/3847) GeometricTwap and GeometricTwapToNow queries added to Stargate whitelist.
-* [#3899](https://github.com/osmosis-labs/osmosis/pull/3899) Fixed osmoutils so its importable by chains that don't use the osmosis CosmosSDK fork 
+* [#3899](https://github.com/osmosis-labs/osmosis/pull/3899) Fixed osmoutils so its importable by chains that don't use the osmosis CosmosSDK fork
   
 ### API breaks
 
@@ -792,7 +937,7 @@ Additionally, the swagger files for v13 have been updated to improve compatibili
 
 * [#3611](https://github.com/osmosis-labs/osmosis/pull/3611),[#3647](https://github.com/osmosis-labs/osmosis/pull/3647) Introduce osmocli, to automate thousands of lines of CLI boilerplate
 * [#3634](https://github.com/osmosis-labs/osmosis/pull/3634) (Makefile) Ensure correct golang version in make build and make install. (Thank you @jhernandezb )
-* [#3712](https://github.com/osmosis-labs/osmosis/pull/3712) replace `osmomath.BigDec` `Power` with `PowerInteger` 
+* [#3712](https://github.com/osmosis-labs/osmosis/pull/3712) replace `osmomath.BigDec` `Power` with `PowerInteger`
 * [#3711](https://github.com/osmosis-labs/osmosis/pull/3711) Use Dec instead of Int for additive `ErrTolerace` in `osmoutils`.
 * [3647](https://github.com/osmosis-labs/osmosis/pull/3647), [3942](https://github.com/osmosis-labs/osmosis/pull/3942) (CLI) re-order the command line arguments for `osmosisd tx gamm join-swap-share-amount-out`
 
@@ -872,8 +1017,8 @@ which acts as a fuzz testing tool tailored for the SDK state machine.
   * TypeMsgMint: from "mint" to "tf_mint"
 * [#2222](https://github.com/osmosis-labs/osmosis/pull/2222) Add scaling factors to MsgCreateStableswapPool
 * [#1889](https://github.com/osmosis-labs/osmosis/pull/1825) Add proto responses to gamm LP messages:
-  * MsgJoinPoolResponse: share_out_amount and token_in fields 
-  * MsgExitPoolResponse: token_out field 
+  * MsgJoinPoolResponse: share_out_amount and token_in fields
+  * MsgExitPoolResponse: token_out field
 * [#1825](https://github.com/osmosis-labs/osmosis/pull/1825) Fixes Interchain Accounts (host side) by adding it to AppModuleBasics
 * [#1994](https://github.com/osmosis-labs/osmosis/pull/1994) Removed bech32ibc module
 * [#2016](https://github.com/osmosis-labs/osmosis/pull/2016) Add fixed 10000 gas cost for each Balancer swap
@@ -907,7 +1052,7 @@ x
 ### Features
 
 * [#2387](https://github.com/osmosis-labs/osmosis/pull/2387) Upgrade to IBC v3.2.0, which allows for sending/receiving IBC tokens with slashes.
-* [#1312] Stableswap: Createpool logic 
+* [#1312] Stableswap: Createpool logic
 * [#1230] Stableswap CFMM equations
 * [#1429] solver for multi-asset CFMM
 * [#1539] Superfluid: Combine superfluid and staking query on querying delegation by delegator
@@ -1044,7 +1189,7 @@ Cosmwasm bindings have been added, to make swapping and creating these new token
 * [#1535](https://github.com/osmosis-labs/osmosis/pull/1535) upgrade wasmd to v0.27.0.rc3-osmo and ibc-go to v3
   * State sync now works for cosmwasm state
   * Cosmwasm builds on M1 macs
-* [#1435](https://github.com/osmosis-labs/osmosis/pull/1435) `x/tokenfactory` create denom fee for spam resistance 
+* [#1435](https://github.com/osmosis-labs/osmosis/pull/1435) `x/tokenfactory` create denom fee for spam resistance
 * [#1253](https://github.com/osmosis-labs/osmosis/pull/1253) Add a message to increase the duration of a bonded lock.
 * [#1656](https://github.com/osmosis-labs/osmosis/pull/1656) Change camelCase to snake_case in proto.
 * [#1632](https://github.com/osmosis-labs/osmosis/pull/1632) augment SuperfluidDelegationsByDelegator query, return osmo equivalent is staked via superfluid
@@ -1058,17 +1203,17 @@ This upgrade includes:
 
 * Adding height-gated AnteHandler message filter to filter unpooling tx pre-upgrade.
 * At block height 4402000 accelerates prop 225, which in turn moves incentives from certain pools according to props 222-224
-* Adds a msg allowing unpooling of UST pools. 
-  * This procedure is initiated by whitelisting pools 560, 562, 567, 578, 592, 610, 612, 615, 642, 679, 580, 635. 
-  * Unpooling allows exiting whitelisted pools directly, finish unbonding duration with the exited tokens instead of having to wait unbonding duration to swap LP shares back to collaterals. 
+* Adds a msg allowing unpooling of UST pools.
+  * This procedure is initiated by whitelisting pools 560, 562, 567, 578, 592, 610, 612, 615, 642, 679, 580, 635.
+  * Unpooling allows exiting whitelisted pools directly, finish unbonding duration with the exited tokens instead of having to wait unbonding duration to swap LP shares back to collaterals.
   * This procedure also includes locks that were already unbonding pre-upgrade and locks that were superfluid delegated.
 
 Every node should upgrade their software version to v8.0.0 before the upgrade block height 4402000. If you use cosmovisor, simply swap out the binary at upgrades/v7/bin to be v8.0.0, and restart the node. Do check cosmovisor version returns v8.0.0
 
-### Features 
-* {Across many PRs} Initiate emergency upgrade 
-* [#1481] Emergency upgrade as of prop [226] (<https://www.mintscan.io/osmosis/proposals/226>) 
-* [#1482] Checking Whitelisted Pools contain UST 
+### Features
+* {Across many PRs} Initiate emergency upgrade
+* [#1481] Emergency upgrade as of prop [226] (<https://www.mintscan.io/osmosis/proposals/226>)
+* [#1482] Checking Whitelisted Pools contain UST
 * [#1486] Update whitelisted pool IDs
 * [#1262] Add a forceprune command to the binaries, that prunes golevelDB data better
 * [#1154] Database stability improvements

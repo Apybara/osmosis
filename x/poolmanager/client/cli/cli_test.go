@@ -7,14 +7,16 @@ import (
 	"github.com/cosmos/gogoproto/proto"
 	"github.com/stretchr/testify/suite"
 
+	addresscodec "github.com/cosmos/cosmos-sdk/codec/address"
+
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/osmosis/osmoutils"
 	"github.com/osmosis-labs/osmosis/osmoutils/osmocli"
-	"github.com/osmosis-labs/osmosis/v23/app"
-	"github.com/osmosis-labs/osmosis/v23/x/poolmanager/client/cli"
-	"github.com/osmosis-labs/osmosis/v23/x/poolmanager/client/queryproto"
-	poolmanagertestutil "github.com/osmosis-labs/osmosis/v23/x/poolmanager/client/testutil"
-	"github.com/osmosis-labs/osmosis/v23/x/poolmanager/types"
+	"github.com/osmosis-labs/osmosis/v25/app"
+	"github.com/osmosis-labs/osmosis/v25/x/poolmanager/client/cli"
+	"github.com/osmosis-labs/osmosis/v25/x/poolmanager/client/queryproto"
+	poolmanagertestutil "github.com/osmosis-labs/osmosis/v25/x/poolmanager/client/testutil"
+	"github.com/osmosis-labs/osmosis/v25/x/poolmanager/types"
 
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/cosmos/cosmos-sdk/crypto/hd"
@@ -270,7 +272,9 @@ func (s *IntegrationTestSuite) TestNewCreatePoolCmd() {
 		val.ClientCtx,
 		val.Address,
 		newAddr,
-		sdk.NewCoins(sdk.NewInt64Coin(s.cfg.BondDenom, 200000000), sdk.NewInt64Coin("node0token", 20000)), fmt.Sprintf("--%s=true", flags.FlagSkipConfirmation),
+		sdk.NewCoins(sdk.NewInt64Coin(s.cfg.BondDenom, 200000000), sdk.NewInt64Coin("node0token", 20000)),
+		addresscodec.NewBech32Codec("osmo"),
+		fmt.Sprintf("--%s=true", flags.FlagSkipConfirmation),
 		fmt.Sprintf("--%s=%s", flags.FlagBroadcastMode, flags.BroadcastSync),
 		osmoutils.DefaultFeeString(s.cfg),
 	)
@@ -553,12 +557,12 @@ func TestEstimateTradeBasedOnPriceImpact(t *testing.T) {
 			ExpectedQuery: &queryproto.EstimateTradeBasedOnPriceImpactRequest{
 				FromCoin: sdk.Coin{
 					Denom:  "node0token",
-					Amount: sdk.NewInt(100),
+					Amount: osmomath.NewInt(100),
 				},
 				ToCoinDenom:    "stake",
 				PoolId:         1,
-				MaxPriceImpact: sdk.MustNewDecFromStr("0.01"), // equivalent to 0.01
-				ExternalPrice:  sdk.MustNewDecFromStr("0.02"), // equivalent to 0.02
+				MaxPriceImpact: osmomath.MustNewDecFromStr("0.01"), // equivalent to 0.01
+				ExternalPrice:  osmomath.MustNewDecFromStr("0.02"), // equivalent to 0.02
 			},
 		},
 	}

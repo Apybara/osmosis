@@ -28,7 +28,7 @@ jobs:
             .github/workflows/e2e-full.yml
       - name: Set output
         id: vars
-        run: echo "::set-output name=git_diff::$GIT_DIFF"
+        run: echo "git_diff=$GIT_DIFF" >> $GITHUB_OUTPUT
     outputs:
       git_diff: ${{ steps.vars.outputs.git_diff }}
 
@@ -54,7 +54,7 @@ jobs:
           tags: osmosis:debug
           build-args: |
             BASE_IMG_TAG=debug
-            BUILD_TAGS="netgo,muslc,excludeIncrement"
+            BUILD_TAGS="netgo,muslc"
       - name: Test e2e and Upgrade
         run: make test-e2e-ci-scheduled
       - name: Dump docker logs on failure

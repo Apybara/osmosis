@@ -1,25 +1,27 @@
 package v16
 
 import (
+	"context"
 	"fmt"
 	"time"
 
+	upgradetypes "cosmossdk.io/x/upgrade/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
-	upgradetypes "github.com/cosmos/cosmos-sdk/x/upgrade/types"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
-	"github.com/osmosis-labs/osmosis/v23/app/keepers"
-	"github.com/osmosis-labs/osmosis/v23/app/upgrades"
+	"github.com/osmosis-labs/osmosis/v25/app/keepers"
+	"github.com/osmosis-labs/osmosis/v25/app/upgrades"
 
 	cosmwasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 	distrtypes "github.com/cosmos/cosmos-sdk/x/distribution/types"
 
-	cltypes "github.com/osmosis-labs/osmosis/v23/x/concentrated-liquidity/types"
-	cosmwasmpooltypes "github.com/osmosis-labs/osmosis/v23/x/cosmwasmpool/types"
-	superfluidtypes "github.com/osmosis-labs/osmosis/v23/x/superfluid/types"
-	tokenfactorykeeper "github.com/osmosis-labs/osmosis/v23/x/tokenfactory/keeper"
-	tokenfactorytypes "github.com/osmosis-labs/osmosis/v23/x/tokenfactory/types"
+	appparams "github.com/osmosis-labs/osmosis/v25/app/params"
+	cltypes "github.com/osmosis-labs/osmosis/v25/x/concentrated-liquidity/types"
+	cosmwasmpooltypes "github.com/osmosis-labs/osmosis/v25/x/cosmwasmpool/types"
+	superfluidtypes "github.com/osmosis-labs/osmosis/v25/x/superfluid/types"
+	tokenfactorykeeper "github.com/osmosis-labs/osmosis/v25/x/tokenfactory/keeper"
+	tokenfactorytypes "github.com/osmosis-labs/osmosis/v25/x/tokenfactory/types"
 )
 
 const (
@@ -31,7 +33,7 @@ const (
 	// Denom0 translates to a base asset while denom1 to a quote asset
 	// We want quote asset to be DAI so that when the limit orders on ticks
 	// are implemented, we have tick spacing in terms of DAI as the quote.
-	DesiredDenom0 = "uosmo"
+	DesiredDenom0 = appparams.BaseCoinUnit
 	TickSpacing   = 100
 
 	// isPermissionlessPoolCreationEnabledCL is a boolean that determines if
@@ -53,12 +55,12 @@ var (
 	// for the purposes of having convenient price increments stemming
 	// from tick to price conversion. These increments are in a human
 	// understandeable magnitude only for token1 as a quote.
-	authorizedQuoteDenoms []string = []string{
-		"uosmo",
-		ATOMIBCDenom,
-		DAIIBCDenom,
-		USDCIBCDenom,
-	}
+	// authorizedQuoteDenoms []string = []string{
+	// 	appparams.BaseCoinUnit,
+	// 	ATOMIBCDenom,
+	// 	DAIIBCDenom,
+	// 	USDCIBCDenom,
+	// }
 
 	// authorizedUptimes is the list of uptimes that are allowed to be
 	// incentivized. It is a subset of SupportedUptimes (which can be
@@ -73,7 +75,8 @@ func CreateUpgradeHandler(
 	bpm upgrades.BaseAppParamManager,
 	keepers *keepers.AppKeepers,
 ) upgradetypes.UpgradeHandler {
-	return func(ctx sdk.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
+	return func(context context.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
+		ctx := sdk.UnwrapSDKContext(context)
 		// Run migrations before applying any other state changes.
 		// NOTE: DO NOT PUT ANY STATE CHANGES BEFORE RunMigrations().
 		migrations, err := mm.RunMigrations(ctx, configurator, fromVM)
@@ -83,7 +86,8 @@ func CreateUpgradeHandler(
 
 		// Update expedited governance param
 		// In particular, set expedited quorum to 2/3.
-		// UNFORKINGNOTE: GetTallyParams no longer exists, keeping commented for historical purposes
+
+		// GetTallyParams no longer exists, keeping commented for historical purposes
 		// params := keepers.GovKeeper.GetTallyParams(ctx)
 		// params.ExpeditedQuorum = osmomath.NewDec(2).Quo(osmomath.NewDec(3))
 		// keepers.GovKeeper.SetTallyParams(ctx, params)
@@ -121,8 +125,7 @@ func CreateUpgradeHandler(
 		// Although parameters are set on InitGenesis() in RunMigrations(), we reset them here
 		// for visibility of the final configuration.
 		defaultConcentratedLiquidityParams := keepers.ConcentratedLiquidityKeeper.GetParams(ctx)
-		defaultConcentratedLiquidityParams.AuthorizedQuoteDenoms = authorizedQuoteDenoms
-		defaultConcentratedLiquidityParams.AuthorizedQuoteDenoms = authorizedQuoteDenoms
+		// defaultConcentratedLiquidityParams.AuthorizedQuoteDenoms = authorizedQuoteDenoms
 		defaultConcentratedLiquidityParams.AuthorizedUptimes = authorizedUptimes
 		defaultConcentratedLiquidityParams.IsPermissionlessPoolCreationEnabled = IsPermissionlessPoolCreationEnabledCL
 		keepers.ConcentratedLiquidityKeeper.SetParams(ctx, defaultConcentratedLiquidityParams)
@@ -162,7 +165,10 @@ func CreateUpgradeHandler(
 		// Because we are doing a direct send from the community pool, we need to manually change the fee pool to reflect the change.
 
 		// Remove coins we used from the community pool to make the CL position
-		feePool := keepers.DistrKeeper.GetFeePool(ctx)
+		feePool, err := keepers.DistrKeeper.FeePool.Get(ctx)
+		if err != nil {
+			return nil, err
+		}
 		fulllRangeOsmoDaiCoinsUsed := sdk.NewCoins(sdk.NewCoin(DesiredDenom0, positionData.Amount0), sdk.NewCoin(DAIIBCDenom, positionData.Amount1))
 		newPool, negative := feePool.CommunityPool.SafeSub(sdk.NewDecCoinsFromCoins(fulllRangeOsmoDaiCoinsUsed...))
 		if negative {
@@ -171,7 +177,10 @@ func CreateUpgradeHandler(
 
 		// Update and set the new fee pool
 		feePool.CommunityPool = newPool
-		keepers.DistrKeeper.SetFeePool(ctx, feePool)
+		err = keepers.DistrKeeper.FeePool.Set(ctx, feePool)
+		if err != nil {
+			return nil, err
+		}
 
 		// Add the cl pool's full range denom as an authorized superfluid asset.
 		superfluidAsset := superfluidtypes.SuperfluidAsset{

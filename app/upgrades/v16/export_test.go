@@ -3,12 +3,12 @@ package v16
 import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	tokenfactorykeeper "github.com/osmosis-labs/osmosis/v23/x/tokenfactory/keeper"
+	tokenfactorykeeper "github.com/osmosis-labs/osmosis/v25/x/tokenfactory/keeper"
 )
 
 var (
-	AuthorizedQuoteDenoms = authorizedQuoteDenoms
-	AuthorizedUptimes     = authorizedUptimes
+	// AuthorizedQuoteDenoms = authorizedQuoteDenoms
+	AuthorizedUptimes = authorizedUptimes
 )
 
 func UpdateTokenFactoryParams(ctx sdk.Context, tokenFactoryKeeper *tokenfactorykeeper.Keeper) {

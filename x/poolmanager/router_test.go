@@ -12,20 +12,21 @@ import (
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/osmosis/osmoutils/osmoassert"
-	"github.com/osmosis-labs/osmosis/v23/app/apptesting"
-	"github.com/osmosis-labs/osmosis/v23/tests/mocks"
-	cl "github.com/osmosis-labs/osmosis/v23/x/concentrated-liquidity"
-	cltypes "github.com/osmosis-labs/osmosis/v23/x/concentrated-liquidity/types"
-	cwpool "github.com/osmosis-labs/osmosis/v23/x/cosmwasmpool"
-	cwmodel "github.com/osmosis-labs/osmosis/v23/x/cosmwasmpool/model"
-	gamm "github.com/osmosis-labs/osmosis/v23/x/gamm/keeper"
-	"github.com/osmosis-labs/osmosis/v23/x/gamm/pool-models/balancer"
-	poolincentivestypes "github.com/osmosis-labs/osmosis/v23/x/pool-incentives/types"
-	"github.com/osmosis-labs/osmosis/v23/x/poolmanager"
-	"github.com/osmosis-labs/osmosis/v23/x/poolmanager/client"
-	"github.com/osmosis-labs/osmosis/v23/x/poolmanager/client/queryproto"
-	"github.com/osmosis-labs/osmosis/v23/x/poolmanager/types"
-	txfeestypes "github.com/osmosis-labs/osmosis/v23/x/txfees/types"
+	"github.com/osmosis-labs/osmosis/v25/app/apptesting"
+	appparams "github.com/osmosis-labs/osmosis/v25/app/params"
+	"github.com/osmosis-labs/osmosis/v25/tests/mocks"
+	cl "github.com/osmosis-labs/osmosis/v25/x/concentrated-liquidity"
+	cltypes "github.com/osmosis-labs/osmosis/v25/x/concentrated-liquidity/types"
+	cwpool "github.com/osmosis-labs/osmosis/v25/x/cosmwasmpool"
+	cwmodel "github.com/osmosis-labs/osmosis/v25/x/cosmwasmpool/model"
+	gamm "github.com/osmosis-labs/osmosis/v25/x/gamm/keeper"
+	"github.com/osmosis-labs/osmosis/v25/x/gamm/pool-models/balancer"
+	poolincentivestypes "github.com/osmosis-labs/osmosis/v25/x/pool-incentives/types"
+	"github.com/osmosis-labs/osmosis/v25/x/poolmanager"
+	"github.com/osmosis-labs/osmosis/v25/x/poolmanager/client"
+	"github.com/osmosis-labs/osmosis/v25/x/poolmanager/client/queryproto"
+	"github.com/osmosis-labs/osmosis/v25/x/poolmanager/types"
+	txfeestypes "github.com/osmosis-labs/osmosis/v25/x/txfees/types"
 )
 
 type poolSetup struct {
@@ -44,7 +45,7 @@ const (
 	FOO   = apptesting.FOO
 	BAR   = apptesting.BAR
 	BAZ   = apptesting.BAZ
-	UOSMO = apptesting.UOSMO
+	UOSMO = appparams.BaseCoinUnit
 
 	// Not an authorized quote denom
 	// ("abc" ensures its always first lexicographically which simplifies setup)
@@ -53,7 +54,7 @@ const (
 
 var (
 	defaultInitPoolAmount   = osmomath.NewInt(1000000000000)
-	defaultPoolSpreadFactor = sdk.NewDecWithPrec(1, 3) // 0.1% pool spread factor default
+	defaultPoolSpreadFactor = osmomath.NewDecWithPrec(1, 3) // 0.1% pool spread factor default
 	pointOneFivePercent     = osmomath.MustNewDecFromStr("0.0015")
 	pointThreePercent       = osmomath.MustNewDecFromStr("0.003")
 	pointThreeFivePercent   = osmomath.MustNewDecFromStr("0.0035")
@@ -226,7 +227,7 @@ func (s *KeeperTestSuite) TestGetPoolModule() {
 			s.SetupTest()
 			poolmanagerKeeper := s.App.PoolManagerKeeper
 
-			s.CreatePoolFromType(tc.preCreatePoolType)
+			createdPoolId := s.CreatePoolFromType(tc.preCreatePoolType)
 
 			if len(tc.routesOverwrite) > 0 {
 				poolmanagerKeeper.SetPoolRoutesUnsafe(tc.routesOverwrite)
@@ -235,7 +236,7 @@ func (s *KeeperTestSuite) TestGetPoolModule() {
 			swapModule, err := poolmanagerKeeper.GetPoolModule(s.Ctx, tc.poolId)
 
 			if tc.expectError != nil {
-				s.Require().Error(err)
+				s.Require().Error(err, "requested pool ID: %d, created pool ID: %d", tc.poolId, createdPoolId)
 				s.Require().ErrorIs(err, tc.expectError)
 				s.Require().Nil(swapModule)
 				return
@@ -247,6 +248,30 @@ func (s *KeeperTestSuite) TestGetPoolModule() {
 			s.Require().Equal(tc.expectedModule, reflect.TypeOf(swapModule))
 		})
 	}
+}
+
+// TestGetPoolTypeGas tests that the result for GetPoolType charges the
+// same gas whether its a cache hit or cache fail.
+func (s *KeeperTestSuite) TestGetPoolTypeGas() {
+	s.SetupTest()
+	poolmanagerKeeper := s.App.PoolManagerKeeper
+
+	createdPoolId := s.CreatePoolFromType(types.Balancer)
+
+	// cache miss
+	s.App.PoolManagerKeeper.ResetCaches()
+	startGas := s.Ctx.GasMeter().GasConsumed()
+	_, err := poolmanagerKeeper.GetPoolType(s.Ctx, createdPoolId)
+	s.Require().NoError(err)
+	endGas := s.Ctx.GasMeter().GasConsumed()
+	cacheMissGas := endGas - startGas
+
+	startGas = s.Ctx.GasMeter().GasConsumed()
+	_, err = poolmanagerKeeper.GetPoolType(s.Ctx, createdPoolId)
+	s.Require().NoError(err)
+	endGas = s.Ctx.GasMeter().GasConsumed()
+	cacheHitGas := endGas - startGas
+	s.Require().Equal(cacheMissGas, cacheHitGas)
 }
 
 func (s *KeeperTestSuite) TestRouteGetPoolDenoms() {
@@ -261,7 +286,7 @@ func (s *KeeperTestSuite) TestRouteGetPoolDenoms() {
 		"valid balancer pool": {
 			preCreatePoolType: types.Balancer,
 			poolId:            1,
-			expectedDenoms:    []string{"bar", "baz", "foo", "uosmo"},
+			expectedDenoms:    []string{"bar", "baz", "foo", appparams.BaseCoinUnit},
 		},
 		"valid stableswap pool": {
 			preCreatePoolType: types.Stableswap,
@@ -406,7 +431,7 @@ func (s *KeeperTestSuite) TestRouteCalculateSpotPrice() {
 				s.FundAcc(s.TestAccs[0], coins)
 
 				clMsgServer := cl.NewMsgServerImpl(s.App.ConcentratedLiquidityKeeper)
-				_, err := clMsgServer.CreatePosition(sdk.WrapSDKContext(s.Ctx), &cltypes.MsgCreatePosition{
+				_, err := clMsgServer.CreatePosition(s.Ctx, &cltypes.MsgCreatePosition{
 					PoolId:          1,
 					Sender:          s.TestAccs[0].String(),
 					LowerTick:       int64(30545000),
@@ -1366,7 +1391,7 @@ func (s *KeeperTestSuite) calcOutGivenInAmountAsSeparatePoolSwaps(routes []types
 
 		spreadFactor := pool.GetSpreadFactor(cacheCtx)
 
-		takerFee, err := s.App.PoolManagerKeeper.GetTradingPairTakerFee(cacheCtx, hop.TokenOutDenom, nextTokenIn.Denom)
+		takerFee, err := s.App.PoolManagerKeeper.GetTradingPairTakerFee(cacheCtx, nextTokenIn.Denom, hop.TokenOutDenom)
 		s.Require().NoError(err)
 
 		nextTokenInAfterSubTakerFee, _ := poolmanager.CalcTakerFeeExactIn(nextTokenIn, takerFee)
@@ -1541,6 +1566,7 @@ func (s *KeeperTestSuite) TestSingleSwapExactAmountIn() {
 			if (tc.takerFee != osmomath.Dec{}) {
 				// If applicable, set taker fee. Note that denoms are reordered lexicographically before being stored.
 				poolmanagerKeeper.SetDenomPairTakerFee(s.Ctx, tc.poolCoins[0].Denom, tc.poolCoins[1].Denom, tc.takerFee)
+				poolmanagerKeeper.SetDenomPairTakerFee(s.Ctx, tc.poolCoins[1].Denom, tc.poolCoins[0].Denom, tc.takerFee)
 
 				multihopTokenOutAmount, err = poolmanagerKeeper.SwapExactAmountIn(s.Ctx, s.TestAccs[0], tc.poolId, tc.tokenIn, tc.tokenOutDenom, tc.tokenOutMinAmount)
 			} else {
@@ -1559,23 +1585,23 @@ func (s *KeeperTestSuite) TestSingleSwapExactAmountIn() {
 
 func (s *KeeperTestSuite) TestEstimateTradeBasedOnPriceImpact() {
 	poolId := uint64(1)
-	maxPriceImpact := sdk.MustNewDecFromStr("0.01")        // 1%
-	maxPriceImpactHalved := sdk.MustNewDecFromStr("0.005") // 0.5%
-	maxPriceImpactTiny := sdk.MustNewDecFromStr("0.0005")  // 0.05%
+	maxPriceImpact := osmomath.MustNewDecFromStr("0.01")        // 1%
+	maxPriceImpactHalved := osmomath.MustNewDecFromStr("0.005") // 0.5%
+	maxPriceImpactTiny := osmomath.MustNewDecFromStr("0.0005")  // 0.05%
 
-	externalPriceOneBalancer := sdk.MustNewDecFromStr("0.666666667")                 // Spot Price
+	externalPriceOneBalancer := osmomath.MustNewDecFromStr("0.666666667")            // Spot Price
 	externalPriceOneBalancerInv := math.LegacyOneDec().Quo(externalPriceOneBalancer) // Inverse of externalPriceOneBalancer
-	externalPriceTwoBalancer := sdk.MustNewDecFromStr("0.622222222")                 // Cheaper than spot price
-	externalPriceThreeBalancer := sdk.MustNewDecFromStr("0.663349917")               // Transform adjusted max price impact by 50%
+	externalPriceTwoBalancer := osmomath.MustNewDecFromStr("0.622222222")            // Cheaper than spot price
+	externalPriceThreeBalancer := osmomath.MustNewDecFromStr("0.663349917")          // Transform adjusted max price impact by 50%
 
-	externalPriceOneStableSwap := sdk.MustNewDecFromStr("1.00000002")             // Spot Price
-	externalPriceTwoStableSwap := sdk.MustNewDecFromStr("0.98989903")             // Cheaper than spot price
-	externalPriceThreeStableSwap := sdk.MustNewDecFromStr("0.990589420505200594") // Transform adjusted max price impact by a %
+	externalPriceOneStableSwap := osmomath.MustNewDecFromStr("1.00000002")             // Spot Price
+	externalPriceTwoStableSwap := osmomath.MustNewDecFromStr("0.98989903")             // Cheaper than spot price
+	externalPriceThreeStableSwap := osmomath.MustNewDecFromStr("0.990589420505200594") // Transform adjusted max price impact by a %
 
-	externalPriceOneConcentrated := sdk.MustNewDecFromStr("0.0002")                     // Same as spot price 1/5000.000000000000000129
-	externalPriceOneConcentratedInv := sdk.MustNewDecFromStr("5000.000000000000000129") // Inverse of externalPriceOneConcentrated
-	externalPriceTwoConcentrated := sdk.MustNewDecFromStr("0.000198")                   // Cheaper than spot price
-	externalPriceThreeConcentrated := sdk.MustNewDecFromStr("0.000198118")
+	externalPriceOneConcentrated := osmomath.MustNewDecFromStr("0.0002")                     // Same as spot price 1/5000.000000000000000129
+	externalPriceOneConcentratedInv := osmomath.MustNewDecFromStr("5000.000000000000000129") // Inverse of externalPriceOneConcentrated
+	externalPriceTwoConcentrated := osmomath.MustNewDecFromStr("0.000198")                   // Cheaper than spot price
+	externalPriceThreeConcentrated := osmomath.MustNewDecFromStr("0.000198118")
 
 	assetBaz := "baz"
 	assetBar := "bar"
@@ -1583,12 +1609,12 @@ func (s *KeeperTestSuite) TestEstimateTradeBasedOnPriceImpact() {
 	assetEth := "eth"
 
 	clCoinsLiquid := sdk.NewCoins(
-		sdk.NewCoin("eth", sdk.NewInt(1000000)),
-		sdk.NewCoin("usdc", sdk.NewInt(5000000000)),
+		sdk.NewCoin("eth", osmomath.NewInt(1000000)),
+		sdk.NewCoin("usdc", osmomath.NewInt(5000000000)),
 	)
 	clCoinsNotLiquid := sdk.NewCoins(
-		sdk.NewCoin("eth", sdk.NewInt(1)),
-		sdk.NewCoin("usdc", sdk.NewInt(1)),
+		sdk.NewCoin("eth", osmomath.NewInt(1)),
+		sdk.NewCoin("usdc", osmomath.NewInt(1)),
 	)
 
 	// The below values have been tested and hard coded by using the `CalcOutAmtGivenIn` as it is quite hard to
@@ -1607,306 +1633,306 @@ func (s *KeeperTestSuite) TestEstimateTradeBasedOnPriceImpact() {
 			preCreatePoolType: types.Balancer,
 			poolId:            poolId,
 			req: queryproto.EstimateTradeBasedOnPriceImpactRequest{
-				FromCoin:       sdk.NewCoin(assetBaz, sdk.NewInt(30_000)),
+				FromCoin:       sdk.NewCoin(assetBaz, osmomath.NewInt(30_000)),
 				ToCoinDenom:    assetBar,
 				PoolId:         poolId,
 				MaxPriceImpact: maxPriceImpact,
 				ExternalPrice:  externalPriceOneBalancer,
 			},
-			expectedInputCoin:  sdk.NewCoin(assetBaz, sdk.NewInt(30_000)),
-			expectedOutputCoin: sdk.NewCoin(assetBar, sdk.NewInt(44_664)),
+			expectedInputCoin:  sdk.NewCoin(assetBaz, osmomath.NewInt(30_000)),
+			expectedOutputCoin: sdk.NewCoin(assetBar, osmomath.NewInt(44_664)),
 		},
 		"valid balancer pool - multiple estimates work as first exceeds price impact": {
 			preCreatePoolType: types.Balancer,
 			poolId:            poolId,
 			req: queryproto.EstimateTradeBasedOnPriceImpactRequest{
-				FromCoin:       sdk.NewCoin(assetBaz, sdk.NewInt(1_000_000)),
+				FromCoin:       sdk.NewCoin(assetBaz, osmomath.NewInt(1_000_000)),
 				ToCoinDenom:    assetBar,
 				PoolId:         poolId,
 				MaxPriceImpact: maxPriceImpact,
 				ExternalPrice:  externalPriceOneBalancer,
 			},
-			expectedInputCoin:  sdk.NewCoin(assetBaz, sdk.NewInt(39_947)),
-			expectedOutputCoin: sdk.NewCoin(assetBar, sdk.NewInt(59_327)),
+			expectedInputCoin:  sdk.NewCoin(assetBaz, osmomath.NewInt(39_947)),
+			expectedOutputCoin: sdk.NewCoin(assetBar, osmomath.NewInt(59_327)),
 		},
 		"valid balancer pool - estimate trying to trade 1 token": {
 			preCreatePoolType: types.Balancer,
 			poolId:            poolId,
 			req: queryproto.EstimateTradeBasedOnPriceImpactRequest{
-				FromCoin:       sdk.NewCoin(assetBar, sdk.NewInt(1)),
+				FromCoin:       sdk.NewCoin(assetBar, osmomath.NewInt(1)),
 				ToCoinDenom:    assetBaz,
 				PoolId:         poolId,
 				MaxPriceImpact: maxPriceImpact,
 				ExternalPrice:  externalPriceOneBalancerInv,
 			},
-			expectedInputCoin:  sdk.NewCoin(assetBar, sdk.NewInt(0)),
-			expectedOutputCoin: sdk.NewCoin(assetBaz, sdk.NewInt(0)),
+			expectedInputCoin:  sdk.NewCoin(assetBar, osmomath.NewInt(0)),
+			expectedOutputCoin: sdk.NewCoin(assetBaz, osmomath.NewInt(0)),
 		},
 		"valid balancer pool - estimate trying to trade dust": {
 			preCreatePoolType: types.Balancer,
 			poolId:            poolId,
 			req: queryproto.EstimateTradeBasedOnPriceImpactRequest{
-				FromCoin:       sdk.NewCoin(assetBaz, sdk.NewInt(20)),
+				FromCoin:       sdk.NewCoin(assetBaz, osmomath.NewInt(20)),
 				ToCoinDenom:    assetBar,
 				PoolId:         poolId,
 				MaxPriceImpact: maxPriceImpact,
 				ExternalPrice:  externalPriceOneBalancer,
 			},
-			expectedInputCoin:  sdk.NewCoin(assetBaz, sdk.NewInt(0)),
-			expectedOutputCoin: sdk.NewCoin(assetBar, sdk.NewInt(0)),
+			expectedInputCoin:  sdk.NewCoin(assetBaz, osmomath.NewInt(0)),
+			expectedOutputCoin: sdk.NewCoin(assetBar, osmomath.NewInt(0)),
 		},
 		"valid balancer pool - external price much greater than spot price do not trade": {
 			preCreatePoolType: types.Balancer,
 			poolId:            poolId,
 			req: queryproto.EstimateTradeBasedOnPriceImpactRequest{
-				FromCoin:       sdk.NewCoin(assetBaz, sdk.NewInt(30_000)),
+				FromCoin:       sdk.NewCoin(assetBaz, osmomath.NewInt(30_000)),
 				ToCoinDenom:    assetBar,
 				PoolId:         poolId,
 				MaxPriceImpact: maxPriceImpact,
 				ExternalPrice:  externalPriceTwoBalancer,
 			},
-			expectedInputCoin:  sdk.NewCoin(assetBaz, sdk.NewInt(0)),
-			expectedOutputCoin: sdk.NewCoin(assetBar, sdk.NewInt(0)),
+			expectedInputCoin:  sdk.NewCoin(assetBaz, osmomath.NewInt(0)),
+			expectedOutputCoin: sdk.NewCoin(assetBar, osmomath.NewInt(0)),
 		},
 		"valid balancer pool - adjusted price impact halved": {
 			preCreatePoolType: types.Balancer,
 			poolId:            poolId,
 			req: queryproto.EstimateTradeBasedOnPriceImpactRequest{
-				FromCoin:       sdk.NewCoin(assetBaz, sdk.NewInt(30_000)),
+				FromCoin:       sdk.NewCoin(assetBaz, osmomath.NewInt(30_000)),
 				ToCoinDenom:    assetBar,
 				PoolId:         poolId,
 				MaxPriceImpact: maxPriceImpactHalved,
 				ExternalPrice:  externalPriceOneBalancer,
 			},
-			expectedInputCoin:  sdk.NewCoin(assetBaz, sdk.NewInt(19_936)),
-			expectedOutputCoin: sdk.NewCoin(assetBar, sdk.NewInt(29_755)),
+			expectedInputCoin:  sdk.NewCoin(assetBaz, osmomath.NewInt(19_936)),
+			expectedOutputCoin: sdk.NewCoin(assetBar, osmomath.NewInt(29_755)),
 		},
 		"valid balancer pool - external price halves adjusted price impact": {
 			preCreatePoolType: types.Balancer,
 			poolId:            poolId,
 			req: queryproto.EstimateTradeBasedOnPriceImpactRequest{
-				FromCoin:       sdk.NewCoin(assetBaz, sdk.NewInt(30_000)),
+				FromCoin:       sdk.NewCoin(assetBaz, osmomath.NewInt(30_000)),
 				ToCoinDenom:    assetBar,
 				PoolId:         poolId,
 				MaxPriceImpact: maxPriceImpact,
 				ExternalPrice:  externalPriceThreeBalancer,
 			},
-			expectedInputCoin:  sdk.NewCoin(assetBaz, sdk.NewInt(19_936)),
-			expectedOutputCoin: sdk.NewCoin(assetBar, sdk.NewInt(29_755)),
+			expectedInputCoin:  sdk.NewCoin(assetBaz, osmomath.NewInt(19_936)),
+			expectedOutputCoin: sdk.NewCoin(assetBar, osmomath.NewInt(29_755)),
 		},
 		"valid balancer pool - adjusted price impact halved - external price not given": {
 			preCreatePoolType: types.Balancer,
 			poolId:            poolId,
 			req: queryproto.EstimateTradeBasedOnPriceImpactRequest{
-				FromCoin:       sdk.NewCoin(assetBaz, sdk.NewInt(30_000)),
+				FromCoin:       sdk.NewCoin(assetBaz, osmomath.NewInt(30_000)),
 				ToCoinDenom:    assetBar,
 				PoolId:         poolId,
 				MaxPriceImpact: maxPriceImpactHalved,
-				ExternalPrice:  sdk.ZeroDec(),
+				ExternalPrice:  osmomath.ZeroDec(),
 			},
-			expectedInputCoin:  sdk.NewCoin(assetBaz, sdk.NewInt(19_936)),
-			expectedOutputCoin: sdk.NewCoin(assetBar, sdk.NewInt(29_755)),
+			expectedInputCoin:  sdk.NewCoin(assetBaz, osmomath.NewInt(19_936)),
+			expectedOutputCoin: sdk.NewCoin(assetBar, osmomath.NewInt(29_755)),
 		},
 		"valid balancer pool - adjusted price impact zero - external price not given": {
 			preCreatePoolType: types.Balancer,
 			poolId:            poolId,
 			req: queryproto.EstimateTradeBasedOnPriceImpactRequest{
-				FromCoin:       sdk.NewCoin(assetBaz, sdk.NewInt(30_000)),
+				FromCoin:       sdk.NewCoin(assetBaz, osmomath.NewInt(30_000)),
 				ToCoinDenom:    assetBar,
 				PoolId:         poolId,
-				MaxPriceImpact: sdk.ZeroDec(),
-				ExternalPrice:  sdk.ZeroDec(),
+				MaxPriceImpact: osmomath.ZeroDec(),
+				ExternalPrice:  osmomath.ZeroDec(),
 			},
-			expectedInputCoin:  sdk.NewCoin(assetBaz, sdk.ZeroInt()),
-			expectedOutputCoin: sdk.NewCoin(assetBar, sdk.ZeroInt()),
+			expectedInputCoin:  sdk.NewCoin(assetBaz, osmomath.ZeroInt()),
+			expectedOutputCoin: sdk.NewCoin(assetBar, osmomath.ZeroInt()),
 		},
 		"valid balancer pool - adjusted price impact negative - external price not given": {
 			preCreatePoolType: types.Balancer,
 			poolId:            poolId,
 			req: queryproto.EstimateTradeBasedOnPriceImpactRequest{
-				FromCoin:       sdk.NewCoin(assetBaz, sdk.NewInt(30_000)),
+				FromCoin:       sdk.NewCoin(assetBaz, osmomath.NewInt(30_000)),
 				ToCoinDenom:    assetBar,
 				PoolId:         poolId,
-				MaxPriceImpact: sdk.NewDec(-1),
-				ExternalPrice:  sdk.ZeroDec(),
+				MaxPriceImpact: osmomath.NewDec(-1),
+				ExternalPrice:  osmomath.ZeroDec(),
 			},
-			expectedInputCoin:  sdk.NewCoin(assetBaz, sdk.ZeroInt()),
-			expectedOutputCoin: sdk.NewCoin(assetBar, sdk.ZeroInt()),
+			expectedInputCoin:  sdk.NewCoin(assetBaz, osmomath.ZeroInt()),
+			expectedOutputCoin: sdk.NewCoin(assetBar, osmomath.ZeroInt()),
 		},
 		"valid balancer pool - adjusted price impact zero - external price given - price impact is negative": {
 			preCreatePoolType: types.Balancer,
 			poolId:            poolId,
 			req: queryproto.EstimateTradeBasedOnPriceImpactRequest{
-				FromCoin:       sdk.NewCoin(assetBaz, sdk.NewInt(30_000)),
+				FromCoin:       sdk.NewCoin(assetBaz, osmomath.NewInt(30_000)),
 				ToCoinDenom:    assetBar,
 				PoolId:         poolId,
-				MaxPriceImpact: sdk.ZeroDec(),
+				MaxPriceImpact: osmomath.ZeroDec(),
 				ExternalPrice:  externalPriceThreeBalancer,
 			},
-			expectedInputCoin:  sdk.NewCoin(assetBaz, sdk.ZeroInt()),
-			expectedOutputCoin: sdk.NewCoin(assetBar, sdk.ZeroInt()),
+			expectedInputCoin:  sdk.NewCoin(assetBaz, osmomath.ZeroInt()),
+			expectedOutputCoin: sdk.NewCoin(assetBar, osmomath.ZeroInt()),
 		},
 		"valid stableswap pool - first estimate works": {
 			preCreatePoolType: types.Stableswap,
 			poolId:            poolId,
 			req: queryproto.EstimateTradeBasedOnPriceImpactRequest{
-				FromCoin:       sdk.NewCoin(assetBaz, sdk.NewInt(30_000)),
+				FromCoin:       sdk.NewCoin(assetBaz, osmomath.NewInt(30_000)),
 				ToCoinDenom:    assetBar,
 				PoolId:         poolId,
 				MaxPriceImpact: maxPriceImpact,
 				ExternalPrice:  externalPriceOneStableSwap,
 			},
-			expectedInputCoin:  sdk.NewCoin(assetBaz, sdk.NewInt(30_000)),
-			expectedOutputCoin: sdk.NewCoin(assetBar, sdk.NewInt(29_982)),
+			expectedInputCoin:  sdk.NewCoin(assetBaz, osmomath.NewInt(30_000)),
+			expectedOutputCoin: sdk.NewCoin(assetBar, osmomath.NewInt(29_982)),
 		},
 		"valid stableswap pool - multiple estimates work as first exceeds price impact": {
 			preCreatePoolType: types.Stableswap,
 			poolId:            poolId,
 			req: queryproto.EstimateTradeBasedOnPriceImpactRequest{
-				FromCoin:       sdk.NewCoin(assetBaz, sdk.NewInt(1_000_000)),
+				FromCoin:       sdk.NewCoin(assetBaz, osmomath.NewInt(1_000_000)),
 				ToCoinDenom:    assetBar,
 				PoolId:         poolId,
 				MaxPriceImpact: maxPriceImpact,
 				ExternalPrice:  externalPriceOneStableSwap,
 			},
-			expectedInputCoin:  sdk.NewCoin(assetBaz, sdk.NewInt(497_617)),
-			expectedOutputCoin: sdk.NewCoin(assetBar, sdk.NewInt(492_690)),
+			expectedInputCoin:  sdk.NewCoin(assetBaz, osmomath.NewInt(497_617)),
+			expectedOutputCoin: sdk.NewCoin(assetBar, osmomath.NewInt(492_690)),
 		},
 		"valid stableswap pool - multiple estimates work as first exceeds price impact - panics too large": {
 			preCreatePoolType: types.Stableswap,
 			poolId:            poolId,
 			req: queryproto.EstimateTradeBasedOnPriceImpactRequest{
-				FromCoin:       sdk.NewCoin(assetBaz, sdk.NewInt(1_000_000_000)),
+				FromCoin:       sdk.NewCoin(assetBaz, osmomath.NewInt(1_000_000_000)),
 				ToCoinDenom:    assetBar,
 				PoolId:         poolId,
 				MaxPriceImpact: maxPriceImpact,
 				ExternalPrice:  externalPriceOneStableSwap,
 			},
-			expectedInputCoin:  sdk.NewCoin(assetBaz, sdk.NewInt(497_666)),
-			expectedOutputCoin: sdk.NewCoin(assetBar, sdk.NewInt(492_739)),
+			expectedInputCoin:  sdk.NewCoin(assetBaz, osmomath.NewInt(497_666)),
+			expectedOutputCoin: sdk.NewCoin(assetBar, osmomath.NewInt(492_739)),
 		},
 		"valid stableswap pool - estimate trying to trade 1 token": {
 			preCreatePoolType: types.Stableswap,
 			poolId:            poolId,
 			req: queryproto.EstimateTradeBasedOnPriceImpactRequest{
-				FromCoin:       sdk.NewCoin(assetBaz, sdk.NewInt(1)),
+				FromCoin:       sdk.NewCoin(assetBaz, osmomath.NewInt(1)),
 				ToCoinDenom:    assetBar,
 				PoolId:         poolId,
 				MaxPriceImpact: maxPriceImpact,
 				ExternalPrice:  externalPriceOneStableSwap,
 			},
-			expectedInputCoin:  sdk.NewCoin(assetBaz, sdk.NewInt(0)),
-			expectedOutputCoin: sdk.NewCoin(assetBar, sdk.NewInt(0)),
+			expectedInputCoin:  sdk.NewCoin(assetBaz, osmomath.NewInt(0)),
+			expectedOutputCoin: sdk.NewCoin(assetBar, osmomath.NewInt(0)),
 		},
 		"valid stableswap pool - estimate trying to trade dust": {
 			preCreatePoolType: types.Stableswap,
 			poolId:            poolId,
 			req: queryproto.EstimateTradeBasedOnPriceImpactRequest{
-				FromCoin:       sdk.NewCoin(assetBaz, sdk.NewInt(20)),
+				FromCoin:       sdk.NewCoin(assetBaz, osmomath.NewInt(20)),
 				ToCoinDenom:    assetBar,
 				PoolId:         poolId,
 				MaxPriceImpact: maxPriceImpact,
 				ExternalPrice:  externalPriceOneStableSwap,
 			},
-			expectedInputCoin:  sdk.NewCoin(assetBaz, sdk.NewInt(0)),
-			expectedOutputCoin: sdk.NewCoin(assetBar, sdk.NewInt(0)),
+			expectedInputCoin:  sdk.NewCoin(assetBaz, osmomath.NewInt(0)),
+			expectedOutputCoin: sdk.NewCoin(assetBar, osmomath.NewInt(0)),
 		},
 		"valid stableswap pool - external price value much greater than spot price do not trade": {
 			preCreatePoolType: types.Stableswap,
 			poolId:            poolId,
 			req: queryproto.EstimateTradeBasedOnPriceImpactRequest{
-				FromCoin:       sdk.NewCoin(assetBaz, sdk.NewInt(30_000)),
+				FromCoin:       sdk.NewCoin(assetBaz, osmomath.NewInt(30_000)),
 				ToCoinDenom:    assetBar,
 				PoolId:         poolId,
 				MaxPriceImpact: maxPriceImpact,
 				ExternalPrice:  externalPriceTwoStableSwap,
 			},
-			expectedInputCoin:  sdk.NewCoin(assetBaz, sdk.NewInt(0)),
-			expectedOutputCoin: sdk.NewCoin(assetBar, sdk.NewInt(0)),
+			expectedInputCoin:  sdk.NewCoin(assetBaz, osmomath.NewInt(0)),
+			expectedOutputCoin: sdk.NewCoin(assetBar, osmomath.NewInt(0)),
 		},
 		"valid stableswap pool - adjusted price impact tiny": {
 			preCreatePoolType: types.Stableswap,
 			poolId:            poolId,
 			req: queryproto.EstimateTradeBasedOnPriceImpactRequest{
-				FromCoin:       sdk.NewCoin(assetBaz, sdk.NewInt(30_000)),
+				FromCoin:       sdk.NewCoin(assetBaz, osmomath.NewInt(30_000)),
 				ToCoinDenom:    assetBar,
 				PoolId:         poolId,
 				MaxPriceImpact: maxPriceImpactTiny,
 				ExternalPrice:  externalPriceOneStableSwap,
 			},
-			expectedInputCoin:  sdk.NewCoin(assetBaz, sdk.NewInt(24_501)),
-			expectedOutputCoin: sdk.NewCoin(assetBar, sdk.NewInt(24_488)),
+			expectedInputCoin:  sdk.NewCoin(assetBaz, osmomath.NewInt(24_501)),
+			expectedOutputCoin: sdk.NewCoin(assetBar, osmomath.NewInt(24_488)),
 		},
 		"valid stableswap pool - external price changes adjusted price impact": {
 			preCreatePoolType: types.Stableswap,
 			poolId:            poolId,
 			req: queryproto.EstimateTradeBasedOnPriceImpactRequest{
-				FromCoin:       sdk.NewCoin(assetBaz, sdk.NewInt(30_000)),
+				FromCoin:       sdk.NewCoin(assetBaz, osmomath.NewInt(30_000)),
 				ToCoinDenom:    assetBar,
 				PoolId:         poolId,
 				MaxPriceImpact: maxPriceImpact,
 				ExternalPrice:  externalPriceThreeStableSwap,
 			},
-			expectedInputCoin:  sdk.NewCoin(assetBaz, sdk.NewInt(24_501)),
-			expectedOutputCoin: sdk.NewCoin(assetBar, sdk.NewInt(24_488)),
+			expectedInputCoin:  sdk.NewCoin(assetBaz, osmomath.NewInt(24_501)),
+			expectedOutputCoin: sdk.NewCoin(assetBar, osmomath.NewInt(24_488)),
 		},
 		"valid stableswap pool - adjusted price impact tiny - external price not given": {
 			preCreatePoolType: types.Stableswap,
 			poolId:            poolId,
 			req: queryproto.EstimateTradeBasedOnPriceImpactRequest{
-				FromCoin:       sdk.NewCoin(assetBaz, sdk.NewInt(30_000)),
+				FromCoin:       sdk.NewCoin(assetBaz, osmomath.NewInt(30_000)),
 				ToCoinDenom:    assetBar,
 				PoolId:         poolId,
 				MaxPriceImpact: maxPriceImpactTiny,
-				ExternalPrice:  sdk.ZeroDec(),
+				ExternalPrice:  osmomath.ZeroDec(),
 			},
-			expectedInputCoin:  sdk.NewCoin(assetBaz, sdk.NewInt(24_501)),
-			expectedOutputCoin: sdk.NewCoin(assetBar, sdk.NewInt(24_488)),
+			expectedInputCoin:  sdk.NewCoin(assetBaz, osmomath.NewInt(24_501)),
+			expectedOutputCoin: sdk.NewCoin(assetBar, osmomath.NewInt(24_488)),
 		},
 		"valid stableswap pool - adjusted price impact zero - external price not given": {
 			preCreatePoolType: types.Stableswap,
 			poolId:            poolId,
 			req: queryproto.EstimateTradeBasedOnPriceImpactRequest{
-				FromCoin:       sdk.NewCoin(assetBaz, sdk.NewInt(30_000)),
+				FromCoin:       sdk.NewCoin(assetBaz, osmomath.NewInt(30_000)),
 				ToCoinDenom:    assetBar,
 				PoolId:         poolId,
-				MaxPriceImpact: sdk.ZeroDec(),
-				ExternalPrice:  sdk.ZeroDec(),
+				MaxPriceImpact: osmomath.ZeroDec(),
+				ExternalPrice:  osmomath.ZeroDec(),
 			},
-			expectedInputCoin:  sdk.NewCoin(assetBaz, sdk.ZeroInt()),
-			expectedOutputCoin: sdk.NewCoin(assetBar, sdk.ZeroInt()),
+			expectedInputCoin:  sdk.NewCoin(assetBaz, osmomath.ZeroInt()),
+			expectedOutputCoin: sdk.NewCoin(assetBar, osmomath.ZeroInt()),
 		},
 		"valid stableswap pool - adjusted price impact negative - external price not given": {
 			preCreatePoolType: types.Stableswap,
 			poolId:            poolId,
 			req: queryproto.EstimateTradeBasedOnPriceImpactRequest{
-				FromCoin:       sdk.NewCoin(assetBaz, sdk.NewInt(30_000)),
+				FromCoin:       sdk.NewCoin(assetBaz, osmomath.NewInt(30_000)),
 				ToCoinDenom:    assetBar,
 				PoolId:         poolId,
-				MaxPriceImpact: sdk.NewDec(-1),
-				ExternalPrice:  sdk.ZeroDec(),
+				MaxPriceImpact: osmomath.NewDec(-1),
+				ExternalPrice:  osmomath.ZeroDec(),
 			},
-			expectedInputCoin:  sdk.NewCoin(assetBaz, sdk.ZeroInt()),
-			expectedOutputCoin: sdk.NewCoin(assetBar, sdk.ZeroInt()),
+			expectedInputCoin:  sdk.NewCoin(assetBaz, osmomath.ZeroInt()),
+			expectedOutputCoin: sdk.NewCoin(assetBar, osmomath.ZeroInt()),
 		},
 		"valid stableswap pool - adjusted price impact zero - external price given - price impact is negative": {
 			preCreatePoolType: types.Stableswap,
 			poolId:            poolId,
 			req: queryproto.EstimateTradeBasedOnPriceImpactRequest{
-				FromCoin:       sdk.NewCoin(assetBaz, sdk.NewInt(30_000)),
+				FromCoin:       sdk.NewCoin(assetBaz, osmomath.NewInt(30_000)),
 				ToCoinDenom:    assetBar,
 				PoolId:         poolId,
-				MaxPriceImpact: sdk.ZeroDec(),
+				MaxPriceImpact: osmomath.ZeroDec(),
 				ExternalPrice:  externalPriceThreeStableSwap,
 			},
-			expectedInputCoin:  sdk.NewCoin(assetBaz, sdk.ZeroInt()),
-			expectedOutputCoin: sdk.NewCoin(assetBar, sdk.ZeroInt()),
+			expectedInputCoin:  sdk.NewCoin(assetBaz, osmomath.ZeroInt()),
+			expectedOutputCoin: sdk.NewCoin(assetBar, osmomath.ZeroInt()),
 		},
 		"valid concentrated pool - first estimate works": {
 			preCreatePoolType: types.Concentrated,
 			poolId:            poolId,
 			req: queryproto.EstimateTradeBasedOnPriceImpactRequest{
-				FromCoin:       sdk.NewCoin(assetEth, sdk.NewInt(10)),
+				FromCoin:       sdk.NewCoin(assetEth, osmomath.NewInt(10)),
 				ToCoinDenom:    assetUsdc,
 				PoolId:         poolId,
 				MaxPriceImpact: maxPriceImpact,
@@ -1914,14 +1940,14 @@ func (s *KeeperTestSuite) TestEstimateTradeBasedOnPriceImpact() {
 			},
 			setPositionForCLPool: true,
 			setClTokens:          clCoinsLiquid,
-			expectedInputCoin:    sdk.NewCoin(assetEth, sdk.NewInt(10)),
-			expectedOutputCoin:   sdk.NewCoin(assetUsdc, sdk.NewInt(49_999)),
+			expectedInputCoin:    sdk.NewCoin(assetEth, osmomath.NewInt(10)),
+			expectedOutputCoin:   sdk.NewCoin(assetUsdc, osmomath.NewInt(49_999)),
 		},
 		"valid concentrated pool - multiple estimates work as first exceeds price impact": {
 			preCreatePoolType: types.Concentrated,
 			poolId:            poolId,
 			req: queryproto.EstimateTradeBasedOnPriceImpactRequest{
-				FromCoin:       sdk.NewCoin(assetEth, sdk.NewInt(1_000_000)),
+				FromCoin:       sdk.NewCoin(assetEth, osmomath.NewInt(1_000_000)),
 				ToCoinDenom:    assetUsdc,
 				PoolId:         poolId,
 				MaxPriceImpact: maxPriceImpact,
@@ -1929,14 +1955,14 @@ func (s *KeeperTestSuite) TestEstimateTradeBasedOnPriceImpact() {
 			},
 			setPositionForCLPool: true,
 			setClTokens:          clCoinsLiquid,
-			expectedInputCoin:    sdk.NewCoin(assetEth, sdk.NewInt(214_661)),
-			expectedOutputCoin:   sdk.NewCoin(assetUsdc, sdk.NewInt(1_062_678_216)),
+			expectedInputCoin:    sdk.NewCoin(assetEth, osmomath.NewInt(214_661)),
+			expectedOutputCoin:   sdk.NewCoin(assetUsdc, osmomath.NewInt(1_062_678_216)),
 		},
 		"valid concentrated pool - estimate trying to trade 1 token": {
 			preCreatePoolType: types.Concentrated,
 			poolId:            poolId,
 			req: queryproto.EstimateTradeBasedOnPriceImpactRequest{
-				FromCoin:       sdk.NewCoin(assetUsdc, sdk.NewInt(1)),
+				FromCoin:       sdk.NewCoin(assetUsdc, osmomath.NewInt(1)),
 				ToCoinDenom:    assetEth,
 				PoolId:         poolId,
 				MaxPriceImpact: maxPriceImpact,
@@ -1944,14 +1970,14 @@ func (s *KeeperTestSuite) TestEstimateTradeBasedOnPriceImpact() {
 			},
 			setPositionForCLPool: true,
 			setClTokens:          clCoinsLiquid,
-			expectedInputCoin:    sdk.NewCoin(assetUsdc, sdk.NewInt(0)),
-			expectedOutputCoin:   sdk.NewCoin(assetEth, sdk.NewInt(0)),
+			expectedInputCoin:    sdk.NewCoin(assetUsdc, osmomath.NewInt(0)),
+			expectedOutputCoin:   sdk.NewCoin(assetEth, osmomath.NewInt(0)),
 		},
 		"valid concentrated pool - estimate trying to trade dust": {
 			preCreatePoolType: types.Concentrated,
 			poolId:            poolId,
 			req: queryproto.EstimateTradeBasedOnPriceImpactRequest{
-				FromCoin:       sdk.NewCoin(assetUsdc, sdk.NewInt(20)),
+				FromCoin:       sdk.NewCoin(assetUsdc, osmomath.NewInt(20)),
 				ToCoinDenom:    assetEth,
 				PoolId:         poolId,
 				MaxPriceImpact: maxPriceImpact,
@@ -1959,8 +1985,8 @@ func (s *KeeperTestSuite) TestEstimateTradeBasedOnPriceImpact() {
 			},
 			setPositionForCLPool: true,
 			setClTokens:          clCoinsLiquid,
-			expectedInputCoin:    sdk.NewCoin(assetUsdc, sdk.NewInt(0)),
-			expectedOutputCoin:   sdk.NewCoin(assetEth, sdk.NewInt(0)),
+			expectedInputCoin:    sdk.NewCoin(assetUsdc, osmomath.NewInt(0)),
+			expectedOutputCoin:   sdk.NewCoin(assetEth, osmomath.NewInt(0)),
 		},
 		"valid concentrated pool - estimate trying to trade one unit": {
 			preCreatePoolType: types.Concentrated,
@@ -1974,14 +2000,14 @@ func (s *KeeperTestSuite) TestEstimateTradeBasedOnPriceImpact() {
 			},
 			setPositionForCLPool: true,
 			setClTokens:          clCoinsLiquid,
-			expectedInputCoin:    sdk.NewCoin(assetUsdc, sdk.NewInt(0)),
-			expectedOutputCoin:   sdk.NewCoin(assetEth, sdk.NewInt(0)),
+			expectedInputCoin:    sdk.NewCoin(assetUsdc, osmomath.NewInt(0)),
+			expectedOutputCoin:   sdk.NewCoin(assetEth, osmomath.NewInt(0)),
 		},
 		"valid concentrated pool - external price much greater than spot price do not trade": {
 			preCreatePoolType: types.Concentrated,
 			poolId:            poolId,
 			req: queryproto.EstimateTradeBasedOnPriceImpactRequest{
-				FromCoin:       sdk.NewCoin(assetEth, sdk.NewInt(30_000)),
+				FromCoin:       sdk.NewCoin(assetEth, osmomath.NewInt(30_000)),
 				ToCoinDenom:    assetUsdc,
 				PoolId:         poolId,
 				MaxPriceImpact: maxPriceImpact,
@@ -1989,14 +2015,14 @@ func (s *KeeperTestSuite) TestEstimateTradeBasedOnPriceImpact() {
 			},
 			setPositionForCLPool: true,
 			setClTokens:          clCoinsLiquid,
-			expectedInputCoin:    sdk.NewCoin(assetEth, sdk.NewInt(0)),
-			expectedOutputCoin:   sdk.NewCoin(assetUsdc, sdk.NewInt(0)),
+			expectedInputCoin:    sdk.NewCoin(assetEth, osmomath.NewInt(0)),
+			expectedOutputCoin:   sdk.NewCoin(assetUsdc, osmomath.NewInt(0)),
 		},
 		"valid concentrated pool - adjusted price impact halved": {
 			preCreatePoolType: types.Concentrated,
 			poolId:            poolId,
 			req: queryproto.EstimateTradeBasedOnPriceImpactRequest{
-				FromCoin:       sdk.NewCoin(assetEth, sdk.NewInt(30_000)),
+				FromCoin:       sdk.NewCoin(assetEth, osmomath.NewInt(30_000)),
 				ToCoinDenom:    assetUsdc,
 				PoolId:         poolId,
 				MaxPriceImpact: maxPriceImpactTiny,
@@ -2004,14 +2030,14 @@ func (s *KeeperTestSuite) TestEstimateTradeBasedOnPriceImpact() {
 			},
 			setPositionForCLPool: true,
 			setClTokens:          clCoinsLiquid,
-			expectedInputCoin:    sdk.NewCoin(assetEth, sdk.NewInt(10_733)),
-			expectedOutputCoin:   sdk.NewCoin(assetUsdc, sdk.NewInt(53_638_181)),
+			expectedInputCoin:    sdk.NewCoin(assetEth, osmomath.NewInt(10_733)),
+			expectedOutputCoin:   sdk.NewCoin(assetUsdc, osmomath.NewInt(53_638_181)),
 		},
 		"valid concentrated pool - external price halves adjusted price impact": {
 			preCreatePoolType: types.Concentrated,
 			poolId:            poolId,
 			req: queryproto.EstimateTradeBasedOnPriceImpactRequest{
-				FromCoin:       sdk.NewCoin(assetEth, sdk.NewInt(30_000)),
+				FromCoin:       sdk.NewCoin(assetEth, osmomath.NewInt(30_000)),
 				ToCoinDenom:    assetUsdc,
 				PoolId:         poolId,
 				MaxPriceImpact: maxPriceImpact,
@@ -2019,74 +2045,74 @@ func (s *KeeperTestSuite) TestEstimateTradeBasedOnPriceImpact() {
 			},
 			setPositionForCLPool: true,
 			setClTokens:          clCoinsLiquid,
-			expectedInputCoin:    sdk.NewCoin(assetEth, sdk.NewInt(10_746)),
-			expectedOutputCoin:   sdk.NewCoin(assetUsdc, sdk.NewInt(53_703_116)),
+			expectedInputCoin:    sdk.NewCoin(assetEth, osmomath.NewInt(10_746)),
+			expectedOutputCoin:   sdk.NewCoin(assetUsdc, osmomath.NewInt(53_703_116)),
 		},
 		"valid concentrated pool - adjusted price impact halved - external price not given": {
 			preCreatePoolType: types.Concentrated,
 			poolId:            poolId,
 			req: queryproto.EstimateTradeBasedOnPriceImpactRequest{
-				FromCoin:       sdk.NewCoin(assetEth, sdk.NewInt(30_000)),
+				FromCoin:       sdk.NewCoin(assetEth, osmomath.NewInt(30_000)),
 				ToCoinDenom:    assetUsdc,
 				PoolId:         poolId,
 				MaxPriceImpact: maxPriceImpactTiny,
-				ExternalPrice:  sdk.ZeroDec(),
+				ExternalPrice:  osmomath.ZeroDec(),
 			},
 			setPositionForCLPool: true,
 			setClTokens:          clCoinsLiquid,
-			expectedInputCoin:    sdk.NewCoin(assetEth, sdk.NewInt(10_733)),
-			expectedOutputCoin:   sdk.NewCoin(assetUsdc, sdk.NewInt(53_638_181)),
+			expectedInputCoin:    sdk.NewCoin(assetEth, osmomath.NewInt(10_733)),
+			expectedOutputCoin:   sdk.NewCoin(assetUsdc, osmomath.NewInt(53_638_181)),
 		},
 		"valid concentrated pool - adjusted price impact zero - external price not given": {
 			preCreatePoolType: types.Concentrated,
 			poolId:            poolId,
 			req: queryproto.EstimateTradeBasedOnPriceImpactRequest{
-				FromCoin:       sdk.NewCoin(assetEth, sdk.NewInt(30_000)),
+				FromCoin:       sdk.NewCoin(assetEth, osmomath.NewInt(30_000)),
 				ToCoinDenom:    assetUsdc,
 				PoolId:         poolId,
-				MaxPriceImpact: sdk.ZeroDec(),
-				ExternalPrice:  sdk.ZeroDec(),
+				MaxPriceImpact: osmomath.ZeroDec(),
+				ExternalPrice:  osmomath.ZeroDec(),
 			},
 			setPositionForCLPool: true,
 			setClTokens:          clCoinsLiquid,
-			expectedInputCoin:    sdk.NewCoin(assetEth, sdk.ZeroInt()),
-			expectedOutputCoin:   sdk.NewCoin(assetUsdc, sdk.ZeroInt()),
+			expectedInputCoin:    sdk.NewCoin(assetEth, osmomath.ZeroInt()),
+			expectedOutputCoin:   sdk.NewCoin(assetUsdc, osmomath.ZeroInt()),
 		},
 		"valid concentrated pool - adjusted price impact negative - external price not given": {
 			preCreatePoolType: types.Concentrated,
 			poolId:            poolId,
 			req: queryproto.EstimateTradeBasedOnPriceImpactRequest{
-				FromCoin:       sdk.NewCoin(assetEth, sdk.NewInt(30_000)),
+				FromCoin:       sdk.NewCoin(assetEth, osmomath.NewInt(30_000)),
 				ToCoinDenom:    assetUsdc,
 				PoolId:         poolId,
-				MaxPriceImpact: sdk.NewDec(-1),
-				ExternalPrice:  sdk.ZeroDec(),
+				MaxPriceImpact: osmomath.NewDec(-1),
+				ExternalPrice:  osmomath.ZeroDec(),
 			},
 			setPositionForCLPool: true,
 			setClTokens:          clCoinsLiquid,
-			expectedInputCoin:    sdk.NewCoin(assetEth, sdk.ZeroInt()),
-			expectedOutputCoin:   sdk.NewCoin(assetUsdc, sdk.ZeroInt()),
+			expectedInputCoin:    sdk.NewCoin(assetEth, osmomath.ZeroInt()),
+			expectedOutputCoin:   sdk.NewCoin(assetUsdc, osmomath.ZeroInt()),
 		},
 		"valid concentrated pool - adjusted price impact zero - external price given - price impact negative": {
 			preCreatePoolType: types.Concentrated,
 			poolId:            poolId,
 			req: queryproto.EstimateTradeBasedOnPriceImpactRequest{
-				FromCoin:       sdk.NewCoin(assetEth, sdk.NewInt(30_000)),
+				FromCoin:       sdk.NewCoin(assetEth, osmomath.NewInt(30_000)),
 				ToCoinDenom:    assetUsdc,
 				PoolId:         poolId,
-				MaxPriceImpact: sdk.ZeroDec(),
+				MaxPriceImpact: osmomath.ZeroDec(),
 				ExternalPrice:  externalPriceThreeConcentrated,
 			},
 			setPositionForCLPool: true,
 			setClTokens:          clCoinsLiquid,
-			expectedInputCoin:    sdk.NewCoin(assetEth, sdk.ZeroInt()),
-			expectedOutputCoin:   sdk.NewCoin(assetUsdc, sdk.ZeroInt()),
+			expectedInputCoin:    sdk.NewCoin(assetEth, osmomath.ZeroInt()),
+			expectedOutputCoin:   sdk.NewCoin(assetUsdc, osmomath.ZeroInt()),
 		},
 		"valid concentrated pool - liquidity too low token out estimation is 0": {
 			preCreatePoolType: types.Concentrated,
 			poolId:            poolId,
 			req: queryproto.EstimateTradeBasedOnPriceImpactRequest{
-				FromCoin:       sdk.NewCoin(assetEth, sdk.NewInt(30_000)),
+				FromCoin:       sdk.NewCoin(assetEth, osmomath.NewInt(30_000)),
 				ToCoinDenom:    assetUsdc,
 				PoolId:         poolId,
 				MaxPriceImpact: maxPriceImpact,
@@ -2094,8 +2120,8 @@ func (s *KeeperTestSuite) TestEstimateTradeBasedOnPriceImpact() {
 			},
 			setPositionForCLPool: true,
 			setClTokens:          clCoinsNotLiquid,
-			expectedInputCoin:    sdk.NewCoin(assetEth, sdk.NewInt(0)),
-			expectedOutputCoin:   sdk.NewCoin(assetUsdc, sdk.NewInt(0)),
+			expectedInputCoin:    sdk.NewCoin(assetEth, osmomath.NewInt(0)),
+			expectedOutputCoin:   sdk.NewCoin(assetUsdc, osmomath.NewInt(0)),
 		},
 		"Invalid Pool ID": {
 			preCreatePoolType: types.Balancer,
@@ -2108,7 +2134,7 @@ func (s *KeeperTestSuite) TestEstimateTradeBasedOnPriceImpact() {
 			preCreatePoolType: types.Balancer,
 			req: queryproto.EstimateTradeBasedOnPriceImpactRequest{
 				PoolId:      2,
-				FromCoin:    sdk.NewCoin(assetEth, sdk.NewInt(30_000)),
+				FromCoin:    sdk.NewCoin(assetEth, osmomath.NewInt(30_000)),
 				ToCoinDenom: assetUsdc,
 			},
 			expectError: "failed to find route for pool id (2)",
@@ -2124,7 +2150,7 @@ func (s *KeeperTestSuite) TestEstimateTradeBasedOnPriceImpact() {
 			preCreatePoolType: types.Balancer,
 			req: queryproto.EstimateTradeBasedOnPriceImpactRequest{
 				PoolId:   1,
-				FromCoin: sdk.NewCoin(assetBaz, sdk.NewInt(100)),
+				FromCoin: sdk.NewCoin(assetBaz, osmomath.NewInt(100)),
 			},
 			expectError: "invalid to coin denom",
 		},
@@ -2132,7 +2158,7 @@ func (s *KeeperTestSuite) TestEstimateTradeBasedOnPriceImpact() {
 			preCreatePoolType: types.Concentrated,
 			poolId:            1,
 			req: queryproto.EstimateTradeBasedOnPriceImpactRequest{
-				FromCoin:       sdk.NewCoin(assetEth, sdk.NewInt(30_000)),
+				FromCoin:       sdk.NewCoin(assetEth, osmomath.NewInt(30_000)),
 				ToCoinDenom:    assetUsdc,
 				PoolId:         poolId,
 				MaxPriceImpact: maxPriceImpact,
@@ -2144,7 +2170,7 @@ func (s *KeeperTestSuite) TestEstimateTradeBasedOnPriceImpact() {
 			preCreatePoolType: types.Balancer,
 			req: queryproto.EstimateTradeBasedOnPriceImpactRequest{
 				PoolId:      1,
-				FromCoin:    sdk.NewCoin("random", sdk.NewInt(30_000)),
+				FromCoin:    sdk.NewCoin("random", osmomath.NewInt(30_000)),
 				ToCoinDenom: assetBar,
 			},
 			expectError: "(random) does not exist in the pool",
@@ -2153,7 +2179,7 @@ func (s *KeeperTestSuite) TestEstimateTradeBasedOnPriceImpact() {
 			preCreatePoolType: types.Balancer,
 			req: queryproto.EstimateTradeBasedOnPriceImpactRequest{
 				PoolId:      1,
-				FromCoin:    sdk.NewCoin(assetBaz, sdk.NewInt(30_000)),
+				FromCoin:    sdk.NewCoin(assetBaz, osmomath.NewInt(30_000)),
 				ToCoinDenom: "random",
 			},
 			expectError: "(random) does not exist in the pool",
@@ -2174,14 +2200,14 @@ func (s *KeeperTestSuite) TestEstimateTradeBasedOnPriceImpact() {
 				s.FundAcc(s.TestAccs[0], tc.setClTokens)
 
 				clMsgServer := cl.NewMsgServerImpl(s.App.ConcentratedLiquidityKeeper)
-				_, err := clMsgServer.CreatePosition(sdk.WrapSDKContext(s.Ctx), &cltypes.MsgCreatePosition{
+				_, err := clMsgServer.CreatePosition(s.Ctx, &cltypes.MsgCreatePosition{
 					PoolId:          1,
 					Sender:          s.TestAccs[0].String(),
 					LowerTick:       int64(30545000),
 					UpperTick:       int64(31500000),
 					TokensProvided:  tc.setClTokens,
-					TokenMinAmount0: sdk.ZeroInt(),
-					TokenMinAmount1: sdk.ZeroInt(),
+					TokenMinAmount0: osmomath.ZeroInt(),
+					TokenMinAmount1: osmomath.ZeroInt(),
 				})
 				s.Require().NoError(err)
 			}
@@ -2776,6 +2802,7 @@ func (s *KeeperTestSuite) TestSplitRouteExactAmountIn() {
 
 				// Set taker fee for pool/pair
 				k.SetDenomPairTakerFee(s.Ctx, pool.initialLiquidity[0].Denom, pool.initialLiquidity[1].Denom, pool.takerFee)
+				k.SetDenomPairTakerFee(s.Ctx, pool.initialLiquidity[1].Denom, pool.initialLiquidity[0].Denom, pool.takerFee)
 
 				// Fund sender with initial liquidity
 				// If not valid, we don't fund to trigger an error case.
@@ -2803,7 +2830,7 @@ func (s *KeeperTestSuite) TestSplitRouteExactAmountIn() {
 			if tc.checkExactOutput {
 				// We set to a small value instead of zero since zero is a special case
 				// where multiplicative tolerance is skipped/not considered
-				multiplicativeTolerance = sdk.NewDecWithPrec(1, 8)
+				multiplicativeTolerance = osmomath.NewDecWithPrec(1, 8)
 			}
 			errTolerance := osmomath.ErrTolerance{
 				RoundingDir:             osmomath.RoundDown,
@@ -3078,6 +3105,7 @@ func (s *KeeperTestSuite) TestSplitRouteExactAmountOut() {
 
 				// Set taker fee for pool/pair
 				k.SetDenomPairTakerFee(s.Ctx, pool.initialLiquidity[0].Denom, pool.initialLiquidity[1].Denom, pool.takerFee)
+				k.SetDenomPairTakerFee(s.Ctx, pool.initialLiquidity[1].Denom, pool.initialLiquidity[0].Denom, pool.takerFee)
 
 				// Fund sender with initial liquidity
 				// If not valid, we don't fund to trigger an error case.
@@ -3105,7 +3133,7 @@ func (s *KeeperTestSuite) TestSplitRouteExactAmountOut() {
 			if tc.checkExactOutput {
 				// We set to a small value instead of zero since zero is a special case
 				// where multiplicative tolerance is skipped/not considered
-				multiplicativeTolerance = sdk.NewDecWithPrec(1, 8)
+				multiplicativeTolerance = osmomath.NewDecWithPrec(1, 8)
 			}
 			errTolerance := osmomath.ErrTolerance{
 				RoundingDir:             osmomath.RoundUp,
@@ -3124,7 +3152,7 @@ func (s *KeeperTestSuite) TestGetTotalPoolLiquidity() {
 	var (
 		defaultPoolCoinOne = sdk.NewCoin("usdc", osmomath.OneInt())
 		defaultPoolCoinTwo = sdk.NewCoin("eth", osmomath.NewInt(2))
-		nonPoolCool        = sdk.NewCoin("uosmo", osmomath.NewInt(3))
+		nonPoolCool        = sdk.NewCoin(appparams.BaseCoinUnit, osmomath.NewInt(3))
 
 		defaultCoins = sdk.NewCoins(defaultPoolCoinOne, defaultPoolCoinTwo)
 	)
@@ -3683,6 +3711,7 @@ func (s *KeeperTestSuite) TestTakerFee() {
 
 				// Set taker fee for pool/pair
 				k.SetDenomPairTakerFee(s.Ctx, pool.initialLiquidity[0].Denom, pool.initialLiquidity[1].Denom, nonZeroTakerFee)
+				k.SetDenomPairTakerFee(s.Ctx, pool.initialLiquidity[1].Denom, pool.initialLiquidity[0].Denom, nonZeroTakerFee)
 
 				// Set the denom pair as a pool route in protorev
 				s.App.ProtoRevKeeper.SetPoolForDenomPair(s.Ctx, pool.initialLiquidity[0].Denom, pool.initialLiquidity[1].Denom, poolId)
@@ -3771,12 +3800,13 @@ func (s *KeeperTestSuite) testSwapExactAmpountInVolumeTracked(noTakerFeeVariant 
 
 	// Set UOSMO as bond denom
 
-	stakingParams := s.App.StakingKeeper.GetParams(s.Ctx)
+	stakingParams, err := s.App.StakingKeeper.GetParams(s.Ctx)
+	s.Require().NoError(err)
 	stakingParams.BondDenom = UOSMO
 	s.App.StakingKeeper.SetParams(s.Ctx, stakingParams)
 
 	// Prepare pool with liquidity
-	concentratedPool := s.PrepareCustomConcentratedPool(s.TestAccs[0], UOSMO, FOO, 1, sdk.ZeroDec())
+	concentratedPool := s.PrepareCustomConcentratedPool(s.TestAccs[0], UOSMO, FOO, 1, osmomath.ZeroDec())
 	s.CreateFullRangePosition(concentratedPool, sdk.NewCoins(sdk.NewCoin(UOSMO, osmomath.NewInt(1_000_000_000)), sdk.NewCoin(FOO, osmomath.NewInt(5_000_000_000))))
 
 	// Validate that volume is zero
@@ -3784,15 +3814,15 @@ func (s *KeeperTestSuite) testSwapExactAmpountInVolumeTracked(noTakerFeeVariant 
 	s.Require().Equal(emptyCoins.String(), totalVolume.String())
 
 	// Fund sender
-	tokenIn := sdk.NewCoin(UOSMO, sdk.NewInt(1000))
+	tokenIn := sdk.NewCoin(UOSMO, osmomath.NewInt(1000))
 	s.FundAcc(s.TestAccs[0], sdk.NewCoins(tokenIn))
 
 	// System under test
 	if noTakerFeeVariant {
-		_, err := s.App.PoolManagerKeeper.SwapExactAmountInNoTakerFee(s.Ctx, s.TestAccs[0], concentratedPool.GetId(), tokenIn, FOO, sdk.ZeroInt())
+		_, err := s.App.PoolManagerKeeper.SwapExactAmountInNoTakerFee(s.Ctx, s.TestAccs[0], concentratedPool.GetId(), tokenIn, FOO, osmomath.ZeroInt())
 		s.Require().NoError(err)
 	} else {
-		_, err := s.App.PoolManagerKeeper.SwapExactAmountIn(s.Ctx, s.TestAccs[0], concentratedPool.GetId(), tokenIn, FOO, sdk.ZeroInt())
+		_, err := s.App.PoolManagerKeeper.SwapExactAmountIn(s.Ctx, s.TestAccs[0], concentratedPool.GetId(), tokenIn, FOO, osmomath.ZeroInt())
 		s.Require().NoError(err)
 	}
 

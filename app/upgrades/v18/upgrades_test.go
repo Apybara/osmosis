@@ -6,29 +6,36 @@ import (
 	"testing"
 	"time"
 
-	abci "github.com/cometbft/cometbft/abci/types"
-	"github.com/cosmos/cosmos-sdk/store/prefix"
+	"cosmossdk.io/core/appmodule"
+	"cosmossdk.io/core/header"
+	"cosmossdk.io/store/prefix"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	upgradetypes "github.com/cosmos/cosmos-sdk/x/upgrade/types"
+	"cosmossdk.io/x/upgrade"
+	upgradetypes "cosmossdk.io/x/upgrade/types"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
-	"github.com/osmosis-labs/osmosis/v23/app/apptesting"
-	v17 "github.com/osmosis-labs/osmosis/v23/app/upgrades/v17"
+	"github.com/osmosis-labs/osmosis/v25/app/apptesting"
+	v17 "github.com/osmosis-labs/osmosis/v25/app/upgrades/v17"
 
-	gammmigration "github.com/osmosis-labs/osmosis/v23/x/gamm/types/migration"
-	lockuptypes "github.com/osmosis-labs/osmosis/v23/x/lockup/types"
-	protorevtypes "github.com/osmosis-labs/osmosis/v23/x/protorev/types"
-	superfluidtypes "github.com/osmosis-labs/osmosis/v23/x/superfluid/types"
+	addresscodec "github.com/cosmos/cosmos-sdk/codec/address"
+
+	appparams "github.com/osmosis-labs/osmosis/v25/app/params"
+	gammmigration "github.com/osmosis-labs/osmosis/v25/x/gamm/types/migration"
+	lockuptypes "github.com/osmosis-labs/osmosis/v25/x/lockup/types"
+	protorevtypes "github.com/osmosis-labs/osmosis/v25/x/protorev/types"
+	superfluidtypes "github.com/osmosis-labs/osmosis/v25/x/superfluid/types"
 )
 
 type UpgradeTestSuite struct {
 	apptesting.KeeperTestHelper
+	preModule appmodule.HasPreBlocker
 }
 
 func (s *UpgradeTestSuite) SetupTest() {
 	s.Setup()
+	s.preModule = upgrade.NewAppModule(s.App.UpgradeKeeper, addresscodec.NewBech32Codec("osmo"))
 }
 
 func TestUpgradeTestSuite(t *testing.T) {
@@ -77,7 +84,10 @@ func (s *UpgradeTestSuite) TestUpgrade() {
 
 	// upgrade software
 	s.imitateUpgrade()
-	s.App.BeginBlocker(s.Ctx, abci.RequestBeginBlock{})
+	s.Require().NotPanics(func() {
+		_, err := s.preModule.PreBlock(s.Ctx)
+		s.Require().NoError(err)
+	})
 	s.Ctx = s.Ctx.WithBlockTime(s.Ctx.BlockTime().Add(time.Hour * 24))
 
 	// after the accum values have been reset correctly after upgrade, we expect the accumulator store to be initialized with the correct value,
@@ -115,10 +125,10 @@ func (s *UpgradeTestSuite) imitateUpgrade() {
 	plan := upgradetypes.Plan{Name: "v18", Height: dummyUpgradeHeight}
 	err := s.App.UpgradeKeeper.ScheduleUpgrade(s.Ctx, plan)
 	s.Require().NoError(err)
-	_, exists := s.App.UpgradeKeeper.GetUpgradePlan(s.Ctx)
-	s.Require().True(exists)
+	_, err = s.App.UpgradeKeeper.GetUpgradePlan(s.Ctx)
+	s.Require().NoError(err)
 
-	s.Ctx = s.Ctx.WithBlockHeight(dummyUpgradeHeight)
+	s.Ctx = s.Ctx.WithHeaderInfo(header.Info{Height: dummyUpgradeHeight, Time: s.Ctx.BlockTime().Add(time.Second)}).WithBlockHeight(dummyUpgradeHeight)
 }
 
 // first set up pool state to mainnet state
@@ -227,8 +237,8 @@ func (s *UpgradeTestSuite) ensurePreUpgradeDistributionPanics() {
 
 	// add pool 3 denom (AKT) ti authorized quote denom param.
 	clParams := s.App.ConcentratedLiquidityKeeper.GetParams(s.Ctx)
-	authorizedQuoteDenom := append(clParams.AuthorizedQuoteDenoms, v17.AKTIBCDenom)
-	clParams.AuthorizedQuoteDenoms = authorizedQuoteDenom
+	// authorizedQuoteDenom := append(clParams.AuthorizedQuoteDenoms, v17.AKTIBCDenom)
+	// clParams.AuthorizedQuoteDenoms = authorizedQuoteDenom
 	s.App.ConcentratedLiquidityKeeper.SetParams(s.Ctx, clParams)
 
 	// prepare CL pool with the same denom as pool 3, which is the pool we are testing with
@@ -247,7 +257,7 @@ func (s *UpgradeTestSuite) ensurePreUpgradeDistributionPanics() {
 	s.App.GAMMKeeper.SetMigrationRecords(s.Ctx, migrationInfo)
 
 	// add new coins to the CL pool gauge so that it would be distributed after epoch ends then trigger panic
-	coinsToAdd := sdk.NewCoins(sdk.NewCoin("uosmo", osmomath.NewInt(1000)))
+	coinsToAdd := sdk.NewCoins(sdk.NewCoin(appparams.BaseCoinUnit, osmomath.NewInt(1000)))
 	gagueId, err := s.App.PoolIncentivesKeeper.GetPoolGaugeId(s.Ctx, clPool.GetId(), epochInfo.Duration)
 	s.Require().NoError(err)
 	gauge, err := s.App.IncentivesKeeper.GetGaugeByID(s.Ctx, gagueId)

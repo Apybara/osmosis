@@ -1,3 +1,0 @@
-# Bridge
-
-The bridge module allows...

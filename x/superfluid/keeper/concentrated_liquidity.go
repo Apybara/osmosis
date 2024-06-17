@@ -6,8 +6,8 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
-	cltypes "github.com/osmosis-labs/osmosis/v23/x/concentrated-liquidity/types"
-	"github.com/osmosis-labs/osmosis/v23/x/superfluid/types"
+	cltypes "github.com/osmosis-labs/osmosis/v25/x/concentrated-liquidity/types"
+	"github.com/osmosis-labs/osmosis/v25/x/superfluid/types"
 )
 
 // addToConcentratedLiquiditySuperfluidPosition adds the specified amounts of tokens to an existing superfluid staked
@@ -70,7 +70,10 @@ func (k Keeper) addToConcentratedLiquiditySuperfluidPosition(ctx sdk.Context, se
 	if lock.Owner != sender.String() {
 		return cltypes.CreateFullRangePositionData{}, 0, types.LockOwnerMismatchError{LockId: lockId, LockOwner: lock.Owner, ProvidedOwner: sender.String()}
 	}
-	unbondingDuration := k.sk.UnbondingTime(ctx)
+	unbondingDuration, err := k.sk.UnbondingTime(ctx)
+	if err != nil {
+		return cltypes.CreateFullRangePositionData{}, 0, err
+	}
 	if lock.Duration != unbondingDuration || !lock.EndTime.IsZero() {
 		return cltypes.CreateFullRangePositionData{}, 0, types.LockImproperStateError{LockId: lockId, UnbondingDuration: unbondingDuration.String()}
 	}

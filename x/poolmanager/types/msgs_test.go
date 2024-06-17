@@ -8,9 +8,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
-	"github.com/osmosis-labs/osmosis/v23/app/apptesting"
-	appParams "github.com/osmosis-labs/osmosis/v23/app/params"
-	"github.com/osmosis-labs/osmosis/v23/x/poolmanager/types"
+	"github.com/osmosis-labs/osmosis/v25/app/apptesting"
+	appParams "github.com/osmosis-labs/osmosis/v25/app/params"
+	appparams "github.com/osmosis-labs/osmosis/v25/app/params"
+	"github.com/osmosis-labs/osmosis/v25/x/poolmanager/module"
+	"github.com/osmosis-labs/osmosis/v25/x/poolmanager/types"
 )
 
 var (
@@ -25,7 +27,7 @@ var (
 
 	validSwapExactAmountInRoutes = []types.SwapAmountInRoute{{
 		PoolId:        1,
-		TokenOutDenom: "uosmo",
+		TokenOutDenom: appparams.BaseCoinUnit,
 	}, {
 		PoolId:        2,
 		TokenOutDenom: "uatom",
@@ -41,7 +43,7 @@ var (
 		TokenInDenom: "uatom",
 	}, {
 		PoolId:       2,
-		TokenInDenom: "uosmo",
+		TokenInDenom: appparams.BaseCoinUnit,
 	}}
 )
 
@@ -336,7 +338,7 @@ func TestAuthzMsg(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			apptesting.TestMessageAuthzSerialization(t, tc.msg)
+			apptesting.TestMessageAuthzSerialization(t, tc.msg, module.AppModuleBasic{})
 		})
 	}
 }
@@ -575,14 +577,14 @@ func TestMsgSetDenomPairTakerFee(t *testing.T) {
 			Sender: addr1,
 			DenomPairTakerFee: []types.DenomPairTakerFee{
 				{
-					Denom0:   "uosmo",
-					Denom1:   "uatom",
-					TakerFee: osmomath.MustNewDecFromStr("0.003"),
+					TokenInDenom:  appparams.BaseCoinUnit,
+					TokenOutDenom: "uatom",
+					TakerFee:      osmomath.MustNewDecFromStr("0.003"),
 				},
 				{
-					Denom0:   "uosmo",
-					Denom1:   "uion",
-					TakerFee: osmomath.MustNewDecFromStr("0.006"),
+					TokenInDenom:  appparams.BaseCoinUnit,
+					TokenOutDenom: "uion",
+					TakerFee:      osmomath.MustNewDecFromStr("0.006"),
 				},
 			},
 		}
@@ -620,21 +622,21 @@ func TestMsgSetDenomPairTakerFee(t *testing.T) {
 		},
 		"invalid denom0": {
 			msg: createMsg(func(msg types.MsgSetDenomPairTakerFee) types.MsgSetDenomPairTakerFee {
-				msg.DenomPairTakerFee[0].Denom0 = ""
+				msg.DenomPairTakerFee[0].TokenInDenom = ""
 				return msg
 			}),
 			expectError: true,
 		},
 		"invalid denom1": {
 			msg: createMsg(func(msg types.MsgSetDenomPairTakerFee) types.MsgSetDenomPairTakerFee {
-				msg.DenomPairTakerFee[0].Denom1 = ""
+				msg.DenomPairTakerFee[0].TokenOutDenom = ""
 				return msg
 			}),
 			expectError: true,
 		},
 		"invalid denom0 = denom1": {
 			msg: createMsg(func(msg types.MsgSetDenomPairTakerFee) types.MsgSetDenomPairTakerFee {
-				msg.DenomPairTakerFee[0].Denom0 = msg.DenomPairTakerFee[0].Denom1
+				msg.DenomPairTakerFee[0].TokenInDenom = msg.DenomPairTakerFee[0].TokenOutDenom
 				return msg
 			}),
 			expectError: true,

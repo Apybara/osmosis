@@ -13,9 +13,9 @@ import (
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/osmosis/osmoutils"
-	gammtypes "github.com/osmosis-labs/osmosis/v23/x/gamm/types"
-	"github.com/osmosis-labs/osmosis/v23/x/poolmanager/client/queryproto"
-	"github.com/osmosis-labs/osmosis/v23/x/poolmanager/types"
+	gammtypes "github.com/osmosis-labs/osmosis/v25/x/gamm/types"
+	"github.com/osmosis-labs/osmosis/v25/x/poolmanager/client/queryproto"
+	"github.com/osmosis-labs/osmosis/v25/x/poolmanager/types"
 )
 
 var (
@@ -27,7 +27,7 @@ var (
 	}
 )
 
-func (k Keeper) GetPoolModuleAndPool(ctx sdk.Context, poolId uint64) (swapModule types.PoolModuleI, pool types.PoolI, err error) {
+func (k *Keeper) GetPoolModuleAndPool(ctx sdk.Context, poolId uint64) (swapModule types.PoolModuleI, pool types.PoolI, err error) {
 	// Get the pool-specific module implementation to ensure that
 	// swaps are routed to the pool type corresponding to pool ID's pool.
 	swapModule, err = k.GetPoolModule(ctx, poolId)
@@ -274,7 +274,7 @@ func (k Keeper) multihopEstimateOutGivenExactAmountInInternal(
 		actualTokenIn := tokenIn
 		// apply taker fee if applicable
 		if applyTakerFee {
-			takerFee, err := k.GetTradingPairTakerFee(ctx, routeStep.TokenOutDenom, tokenIn.Denom)
+			takerFee, err := k.GetTradingPairTakerFee(ctx, tokenIn.Denom, routeStep.TokenOutDenom)
 			if err != nil {
 				return osmomath.Int{}, err
 			}
@@ -679,7 +679,10 @@ func (k Keeper) TotalLiquidity(ctx sdk.Context) (sdk.Coins, error) {
 // CONTRACT: pool with `poolId` exists
 func (k Keeper) trackVolume(ctx sdk.Context, poolId uint64, volumeGenerated sdk.Coin) {
 	// If the denom is already denominated in uosmo, we can just use it directly
-	OSMO := k.stakingKeeper.BondDenom(ctx)
+	OSMO, err := k.stakingKeeper.BondDenom(ctx)
+	if err != nil {
+		panic(err)
+	}
 	if volumeGenerated.Denom == OSMO {
 		k.addVolume(ctx, poolId, volumeGenerated)
 		return
@@ -763,7 +766,11 @@ func (k Keeper) GetTotalVolumeForPool(ctx sdk.Context, poolId uint64) sdk.Coins 
 // GetOsmoVolumeForPool gets the total OSMO-denominated historical volume for a given pool ID.
 func (k Keeper) GetOsmoVolumeForPool(ctx sdk.Context, poolId uint64) osmomath.Int {
 	totalVolume := k.GetTotalVolumeForPool(ctx, poolId)
-	return totalVolume.AmountOf(k.stakingKeeper.BondDenom(ctx))
+	OSMO, err := k.stakingKeeper.BondDenom(ctx)
+	if err != nil {
+		panic(err)
+	}
+	return totalVolume.AmountOf(OSMO)
 }
 
 // EstimateTradeBasedOnPriceImpactBalancerPool estimates a trade based on price impact for a balancer pool type.
@@ -777,20 +784,20 @@ func (k Keeper) EstimateTradeBasedOnPriceImpactBalancerPool(
 	swapModule types.PoolModuleI,
 	poolI types.PoolI,
 ) (*queryproto.EstimateTradeBasedOnPriceImpactResponse, error) {
-	tokenOut, err := swapModule.CalcOutAmtGivenIn(ctx, poolI, req.FromCoin, req.ToCoinDenom, sdk.ZeroDec())
+	tokenOut, err := swapModule.CalcOutAmtGivenIn(ctx, poolI, req.FromCoin, req.ToCoinDenom, osmomath.ZeroDec())
 	if err != nil {
 		if errors.Is(err, gammtypes.ErrInvalidMathApprox) {
 			return &queryproto.EstimateTradeBasedOnPriceImpactResponse{
-				InputCoin:  sdk.NewCoin(req.FromCoin.Denom, sdk.ZeroInt()),
-				OutputCoin: sdk.NewCoin(req.ToCoinDenom, sdk.ZeroInt()),
+				InputCoin:  sdk.NewCoin(req.FromCoin.Denom, osmomath.ZeroInt()),
+				OutputCoin: sdk.NewCoin(req.ToCoinDenom, osmomath.ZeroInt()),
 			}, nil
 		}
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 	if tokenOut.IsZero() {
 		return &queryproto.EstimateTradeBasedOnPriceImpactResponse{
-			InputCoin:  sdk.NewCoin(req.FromCoin.Denom, sdk.ZeroInt()),
-			OutputCoin: sdk.NewCoin(req.ToCoinDenom, sdk.ZeroInt()),
+			InputCoin:  sdk.NewCoin(req.FromCoin.Denom, osmomath.ZeroInt()),
+			OutputCoin: sdk.NewCoin(req.ToCoinDenom, osmomath.ZeroInt()),
 		}, nil
 	}
 
@@ -804,8 +811,8 @@ func (k Keeper) EstimateTradeBasedOnPriceImpactBalancerPool(
 		if err != nil {
 			if errors.Is(err, gammtypes.ErrInvalidMathApprox) {
 				return &queryproto.EstimateTradeBasedOnPriceImpactResponse{
-					InputCoin:  sdk.NewCoin(req.FromCoin.Denom, sdk.ZeroInt()),
-					OutputCoin: sdk.NewCoin(req.ToCoinDenom, sdk.ZeroInt()),
+					InputCoin:  sdk.NewCoin(req.FromCoin.Denom, osmomath.ZeroInt()),
+					OutputCoin: sdk.NewCoin(req.ToCoinDenom, osmomath.ZeroInt()),
 				}, nil
 			}
 			return nil, status.Error(codes.Internal, err.Error())
@@ -818,7 +825,7 @@ func (k Keeper) EstimateTradeBasedOnPriceImpactBalancerPool(
 	}
 
 	// Define low and high amount to search between. Start from 1 and req.FromCoin.Amount as initial range.
-	lowAmount := sdk.OneInt()
+	lowAmount := osmomath.OneInt()
 	highAmount := req.FromCoin.Amount
 	currFromCoin := req.FromCoin
 
@@ -838,33 +845,33 @@ func (k Keeper) EstimateTradeBasedOnPriceImpactBalancerPool(
 	// point the optimal amount respecting the max price impact will have been found.
 	for lowAmount.LTE(highAmount) {
 		// Calculate currFromCoin as the new middle amount to try trade.
-		midAmount := lowAmount.Add(highAmount).Quo(sdk.NewInt(2))
+		midAmount := lowAmount.Add(highAmount).Quo(osmomath.NewInt(2))
 		currFromCoin = sdk.NewCoin(req.FromCoin.Denom, midAmount)
 
 		tokenOut, err := swapModule.CalcOutAmtGivenIn(
-			ctx, poolI, currFromCoin, req.ToCoinDenom, sdk.ZeroDec(),
+			ctx, poolI, currFromCoin, req.ToCoinDenom, osmomath.ZeroDec(),
 		)
 		if err != nil {
 			if errors.Is(err, gammtypes.ErrInvalidMathApprox) {
 				return &queryproto.EstimateTradeBasedOnPriceImpactResponse{
-					InputCoin:  sdk.NewCoin(req.FromCoin.Denom, sdk.ZeroInt()),
-					OutputCoin: sdk.NewCoin(req.ToCoinDenom, sdk.ZeroInt()),
+					InputCoin:  sdk.NewCoin(req.FromCoin.Denom, osmomath.ZeroInt()),
+					OutputCoin: sdk.NewCoin(req.ToCoinDenom, osmomath.ZeroInt()),
 				}, nil
 			}
 			return nil, status.Error(codes.Internal, err.Error())
 		}
 		if tokenOut.IsZero() {
 			return &queryproto.EstimateTradeBasedOnPriceImpactResponse{
-				InputCoin:  sdk.NewCoin(req.FromCoin.Denom, sdk.ZeroInt()),
-				OutputCoin: sdk.NewCoin(req.ToCoinDenom, sdk.ZeroInt()),
+				InputCoin:  sdk.NewCoin(req.FromCoin.Denom, osmomath.ZeroInt()),
+				OutputCoin: sdk.NewCoin(req.ToCoinDenom, osmomath.ZeroInt()),
 			}, nil
 		}
 
 		priceDeviation := calculatePriceDeviation(currFromCoin, tokenOut, spotPrice)
 		if priceDeviation.LTE(adjustedMaxPriceImpact) {
-			lowAmount = midAmount.Add(sdk.OneInt())
+			lowAmount = midAmount.Add(osmomath.OneInt())
 		} else {
-			highAmount = midAmount.Sub(sdk.OneInt())
+			highAmount = midAmount.Sub(osmomath.OneInt())
 		}
 	}
 
@@ -872,8 +879,8 @@ func (k Keeper) EstimateTradeBasedOnPriceImpactBalancerPool(
 	// the price impact.
 	if highAmount.IsZero() {
 		return &queryproto.EstimateTradeBasedOnPriceImpactResponse{
-			InputCoin:  sdk.NewCoin(req.FromCoin.Denom, sdk.ZeroInt()),
-			OutputCoin: sdk.NewCoin(req.ToCoinDenom, sdk.ZeroInt()),
+			InputCoin:  sdk.NewCoin(req.FromCoin.Denom, osmomath.ZeroInt()),
+			OutputCoin: sdk.NewCoin(req.ToCoinDenom, osmomath.ZeroInt()),
 		}, nil
 	}
 
@@ -904,7 +911,7 @@ func (k Keeper) EstimateTradeBasedOnPriceImpactStableSwapPool(
 	var tokenOut sdk.Coin
 	var err error
 	err = osmoutils.ApplyFuncIfNoError(ctx, func(ctx sdk.Context) error {
-		tokenOut, err = swapModule.CalcOutAmtGivenIn(ctx, poolI, req.FromCoin, req.ToCoinDenom, sdk.ZeroDec())
+		tokenOut, err = swapModule.CalcOutAmtGivenIn(ctx, poolI, req.FromCoin, req.ToCoinDenom, osmomath.ZeroDec())
 		return err
 	})
 
@@ -914,8 +921,8 @@ func (k Keeper) EstimateTradeBasedOnPriceImpactStableSwapPool(
 	// are too large due to the maths involved, while Balancer pool types do not.
 	if err != nil && !strings.Contains(err.Error(), "panic") {
 		return &queryproto.EstimateTradeBasedOnPriceImpactResponse{
-			InputCoin:  sdk.NewCoin(req.FromCoin.Denom, sdk.ZeroInt()),
-			OutputCoin: sdk.NewCoin(req.ToCoinDenom, sdk.ZeroInt()),
+			InputCoin:  sdk.NewCoin(req.FromCoin.Denom, osmomath.ZeroInt()),
+			OutputCoin: sdk.NewCoin(req.ToCoinDenom, osmomath.ZeroInt()),
 		}, nil
 	} else if err == nil {
 		// Validate if the trade as is respects the price impact, if it does re-estimate it with a swap fee and return
@@ -937,7 +944,7 @@ func (k Keeper) EstimateTradeBasedOnPriceImpactStableSwapPool(
 	}
 
 	// Define low and high amount to search between. Start from 1 and req.FromCoin.Amount as initial range.
-	lowAmount := sdk.OneInt()
+	lowAmount := osmomath.OneInt()
 	highAmount := req.FromCoin.Amount
 	currFromCoin := req.FromCoin
 
@@ -957,11 +964,11 @@ func (k Keeper) EstimateTradeBasedOnPriceImpactStableSwapPool(
 	// point the optimal amount respecting the max price impact will have been found.
 	for lowAmount.LTE(highAmount) {
 		// Calculate currFromCoin as the new middle amount to try trade.
-		midAmount := lowAmount.Add(highAmount).Quo(sdk.NewInt(2))
+		midAmount := lowAmount.Add(highAmount).Quo(osmomath.NewInt(2))
 		currFromCoin = sdk.NewCoin(req.FromCoin.Denom, midAmount)
 
 		err = osmoutils.ApplyFuncIfNoError(ctx, func(ctx sdk.Context) error {
-			tokenOut, err = swapModule.CalcOutAmtGivenIn(ctx, poolI, currFromCoin, req.ToCoinDenom, sdk.ZeroDec())
+			tokenOut, err = swapModule.CalcOutAmtGivenIn(ctx, poolI, currFromCoin, req.ToCoinDenom, osmomath.ZeroDec())
 			return err
 		})
 
@@ -970,19 +977,19 @@ func (k Keeper) EstimateTradeBasedOnPriceImpactStableSwapPool(
 		// pool types.
 		if err != nil && !strings.Contains(err.Error(), "panic") {
 			return &queryproto.EstimateTradeBasedOnPriceImpactResponse{
-				InputCoin:  sdk.NewCoin(req.FromCoin.Denom, sdk.ZeroInt()),
-				OutputCoin: sdk.NewCoin(req.ToCoinDenom, sdk.ZeroInt()),
+				InputCoin:  sdk.NewCoin(req.FromCoin.Denom, osmomath.ZeroInt()),
+				OutputCoin: sdk.NewCoin(req.ToCoinDenom, osmomath.ZeroInt()),
 			}, nil
 		} else if err != nil {
 			// If there is an error that does contain a panic it means the amount is still too large,
 			// and we should continue halving.
-			highAmount = midAmount.Sub(sdk.OneInt())
+			highAmount = midAmount.Sub(osmomath.OneInt())
 		} else {
 			priceDeviation := calculatePriceDeviation(currFromCoin, tokenOut, spotPrice)
 			if priceDeviation.LTE(adjustedMaxPriceImpact) {
-				lowAmount = midAmount.Add(sdk.OneInt())
+				lowAmount = midAmount.Add(osmomath.OneInt())
 			} else {
-				highAmount = midAmount.Sub(sdk.OneInt())
+				highAmount = midAmount.Sub(osmomath.OneInt())
 			}
 		}
 	}
@@ -991,8 +998,8 @@ func (k Keeper) EstimateTradeBasedOnPriceImpactStableSwapPool(
 	// the price impact.
 	if highAmount.IsZero() {
 		return &queryproto.EstimateTradeBasedOnPriceImpactResponse{
-			InputCoin:  sdk.NewCoin(req.FromCoin.Denom, sdk.ZeroInt()),
-			OutputCoin: sdk.NewCoin(req.ToCoinDenom, sdk.ZeroInt()),
+			InputCoin:  sdk.NewCoin(req.FromCoin.Denom, osmomath.ZeroInt()),
+			OutputCoin: sdk.NewCoin(req.ToCoinDenom, osmomath.ZeroInt()),
 		}, nil
 	}
 
@@ -1021,15 +1028,15 @@ func (k Keeper) EstimateTradeBasedOnPriceImpactConcentratedLiquidity(
 	swapModule types.PoolModuleI,
 	poolI types.PoolI,
 ) (*queryproto.EstimateTradeBasedOnPriceImpactResponse, error) {
-	tokenOut, err := swapModule.CalcOutAmtGivenIn(ctx, poolI, req.FromCoin, req.ToCoinDenom, sdk.ZeroDec())
+	tokenOut, err := swapModule.CalcOutAmtGivenIn(ctx, poolI, req.FromCoin, req.ToCoinDenom, osmomath.ZeroDec())
 	// If there was no error we attempt to validate if the output is below the adjustedMaxPriceImpact.
 	if err == nil {
 		// If the tokenOut was returned to be zero it means the amount being traded is too small. We ignore the
 		// error output here as it could mean that the input is too large.
 		if tokenOut.IsZero() {
 			return &queryproto.EstimateTradeBasedOnPriceImpactResponse{
-				InputCoin:  sdk.NewCoin(req.FromCoin.Denom, sdk.ZeroInt()),
-				OutputCoin: sdk.NewCoin(req.ToCoinDenom, sdk.ZeroInt()),
+				InputCoin:  sdk.NewCoin(req.FromCoin.Denom, osmomath.ZeroInt()),
+				OutputCoin: sdk.NewCoin(req.ToCoinDenom, osmomath.ZeroInt()),
 			}, nil
 		}
 
@@ -1050,7 +1057,7 @@ func (k Keeper) EstimateTradeBasedOnPriceImpactConcentratedLiquidity(
 	}
 
 	// Define low and high amount to search between. Start from 1 and req.FromCoin.Amount as initial range.
-	lowAmount := sdk.OneInt()
+	lowAmount := osmomath.OneInt()
 	highAmount := req.FromCoin.Amount
 	currFromCoin := req.FromCoin
 
@@ -1070,28 +1077,28 @@ func (k Keeper) EstimateTradeBasedOnPriceImpactConcentratedLiquidity(
 	// point the optimal amount respecting the max price impact will have been found.
 	for lowAmount.LTE(highAmount) {
 		// Calculate currFromCoin as the new middle amount to try trade.
-		midAmount := lowAmount.Add(highAmount).Quo(sdk.NewInt(2))
+		midAmount := lowAmount.Add(highAmount).Quo(osmomath.NewInt(2))
 		currFromCoin = sdk.NewCoin(req.FromCoin.Denom, midAmount)
 
-		tokenOut, err := swapModule.CalcOutAmtGivenIn(ctx, poolI, currFromCoin, req.ToCoinDenom, sdk.ZeroDec())
+		tokenOut, err := swapModule.CalcOutAmtGivenIn(ctx, poolI, currFromCoin, req.ToCoinDenom, osmomath.ZeroDec())
 		if err == nil {
 			// If the tokenOut was returned to be zero it means the amount being traded is too small. We ignore the
 			// error output here as it could mean that the input is too large.
 			if tokenOut.IsZero() {
 				return &queryproto.EstimateTradeBasedOnPriceImpactResponse{
-					InputCoin:  sdk.NewCoin(req.FromCoin.Denom, sdk.ZeroInt()),
-					OutputCoin: sdk.NewCoin(req.ToCoinDenom, sdk.ZeroInt()),
+					InputCoin:  sdk.NewCoin(req.FromCoin.Denom, osmomath.ZeroInt()),
+					OutputCoin: sdk.NewCoin(req.ToCoinDenom, osmomath.ZeroInt()),
 				}, nil
 			}
 
 			priceDeviation := calculatePriceDeviation(currFromCoin, tokenOut, spotPrice)
 			if priceDeviation.LTE(adjustedMaxPriceImpact) {
-				lowAmount = midAmount.Add(sdk.OneInt())
+				lowAmount = midAmount.Add(osmomath.OneInt())
 			} else {
-				highAmount = midAmount.Sub(sdk.OneInt())
+				highAmount = midAmount.Sub(osmomath.OneInt())
 			}
 		} else {
-			highAmount = midAmount.Sub(sdk.OneInt())
+			highAmount = midAmount.Sub(osmomath.OneInt())
 		}
 	}
 
@@ -1099,8 +1106,8 @@ func (k Keeper) EstimateTradeBasedOnPriceImpactConcentratedLiquidity(
 	// the price impact.
 	if highAmount.IsZero() {
 		return &queryproto.EstimateTradeBasedOnPriceImpactResponse{
-			InputCoin:  sdk.NewCoin(req.FromCoin.Denom, sdk.ZeroInt()),
-			OutputCoin: sdk.NewCoin(req.ToCoinDenom, sdk.ZeroInt()),
+			InputCoin:  sdk.NewCoin(req.FromCoin.Denom, osmomath.ZeroInt()),
+			OutputCoin: sdk.NewCoin(req.ToCoinDenom, osmomath.ZeroInt()),
 		}, nil
 	}
 
@@ -1121,7 +1128,7 @@ func (k Keeper) EstimateTradeBasedOnPriceImpactConcentratedLiquidity(
 // We have an `Abs()` at the end of the priceDeviation equation as we cannot be sure if any pool types based on their
 // configurations trade out more tokens than given for a trade, it is added just in-case.
 func calculatePriceDeviation(currFromCoin, tokenOut sdk.Coin, spotPrice osmomath.Dec) osmomath.Dec {
-	currTradePrice := sdk.NewDec(currFromCoin.Amount.Int64()).QuoInt(tokenOut.Amount)
+	currTradePrice := osmomath.NewDec(currFromCoin.Amount.Int64()).QuoInt(tokenOut.Amount)
 	priceDeviation := currTradePrice.Sub(spotPrice).Quo(spotPrice).Abs()
 	return priceDeviation
 }

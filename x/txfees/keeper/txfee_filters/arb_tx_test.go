@@ -8,10 +8,12 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/stretchr/testify/suite"
 
-	"github.com/osmosis-labs/osmosis/v23/app/apptesting"
-	"github.com/osmosis-labs/osmosis/v23/x/gamm/types"
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v23/x/poolmanager/types"
-	"github.com/osmosis-labs/osmosis/v23/x/txfees/keeper/txfee_filters"
+	"github.com/osmosis-labs/osmosis/osmomath"
+	"github.com/osmosis-labs/osmosis/v25/app/apptesting"
+	appparams "github.com/osmosis-labs/osmosis/v25/app/params"
+	"github.com/osmosis-labs/osmosis/v25/x/gamm/types"
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v25/x/poolmanager/types"
+	"github.com/osmosis-labs/osmosis/v25/x/txfees/keeper/txfee_filters"
 )
 
 type KeeperTestSuite struct {
@@ -27,11 +29,11 @@ func (suite *KeeperTestSuite) TestIsArbTxLooseAuthz_AffiliateSwapMsg() {
 	affiliateSwapMsg := &txfee_filters.AffiliateSwapMsg{
 		Swap: txfee_filters.Swap{
 			FeeCollector:  "osmo1dldrxz5p8uezxz3qstpv92de7wgfp7hvr72dcm",
-			FeePercentage: sdk.ZeroDec(),
+			FeePercentage: osmomath.ZeroDec(),
 			Routes: []poolmanagertypes.SwapAmountInRoute{
 				{
 					PoolId:        1221,
-					TokenOutDenom: "uosmo",
+					TokenOutDenom: appparams.BaseCoinUnit,
 				},
 				{
 					PoolId:        3,
@@ -46,7 +48,7 @@ func (suite *KeeperTestSuite) TestIsArbTxLooseAuthz_AffiliateSwapMsg() {
 					TokenOutDenom: "ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4",
 				},
 			},
-			TokenOutMinAmount: sdk.NewCoin("ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4", sdk.NewInt(217084399)),
+			TokenOutMinAmount: sdk.NewCoin("ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4", osmomath.NewInt(217084399)),
 		},
 	}
 
@@ -57,7 +59,7 @@ func (suite *KeeperTestSuite) TestIsArbTxLooseAuthz_AffiliateSwapMsg() {
 	executeMsg := &wasmtypes.MsgExecuteContract{
 		Contract: "osmo1etpha3a65tds0hmn3wfjeag6wgxgrkuwg2zh94cf5hapz7mz04dq6c25s5",
 		Sender:   "osmo1dldrxz5p8uezxz3qstpv92de7wgfp7hvr72dcm",
-		Funds:    sdk.NewCoins(sdk.NewCoin("ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4", sdk.NewInt(217084399))),
+		Funds:    sdk.NewCoins(sdk.NewCoin("ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4", osmomath.NewInt(217084399))),
 		Msg:      affiliateSwapMsgBz,
 	}
 
@@ -87,7 +89,7 @@ func (suite *KeeperTestSuite) TestIsArbTxLooseAuthz_SwapMsg() {
 	executeMsg := &wasmtypes.MsgExecuteContract{
 		Contract: "osmo1etpha3a65tds0hmn3wfjeag6wgxgrkuwg2zh94cf5hapz7mz04dq6c25s5",
 		Sender:   "osmo1dldrxz5p8uezxz3qstpv92de7wgfp7hvr72dcm",
-		Funds:    sdk.NewCoins(sdk.NewCoin("ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4", sdk.NewInt(217084399))),
+		Funds:    sdk.NewCoins(sdk.NewCoin("ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4", osmomath.NewInt(217084399))),
 		Msg:      msgBz,
 	}
 
@@ -102,7 +104,7 @@ func (suite *KeeperTestSuite) TestIsArbTxLooseAuthz_OtherMsg() {
 	executeMsg := &wasmtypes.MsgExecuteContract{
 		Contract: "osmo1etpha3a65tds0hmn3wfjeag6wgxgrkuwg2zh94cf5hapz7mz04dq6c25s5",
 		Sender:   "osmo1dldrxz5p8uezxz3qstpv92de7wgfp7hvr72dcm",
-		Funds:    sdk.NewCoins(sdk.NewCoin("ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4", sdk.NewInt(217084399))),
+		Funds:    sdk.NewCoins(sdk.NewCoin("ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4", osmomath.NewInt(217084399))),
 		Msg:      otherMsg,
 	}
 

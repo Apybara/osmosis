@@ -1,6 +1,7 @@
 package v17
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"time"
@@ -9,22 +10,22 @@ import (
 	ibchookstypes "github.com/osmosis-labs/osmosis/x/ibc-hooks/types"
 
 	errorsmod "cosmossdk.io/errors"
+	upgradetypes "cosmossdk.io/x/upgrade/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
-	upgradetypes "github.com/cosmos/cosmos-sdk/x/upgrade/types"
 
 	distrtypes "github.com/cosmos/cosmos-sdk/x/distribution/types"
 
-	cltypes "github.com/osmosis-labs/osmosis/v23/x/concentrated-liquidity/types"
-	gammtypes "github.com/osmosis-labs/osmosis/v23/x/gamm/types"
-	gammmigration "github.com/osmosis-labs/osmosis/v23/x/gamm/types/migration"
-	superfluidtypes "github.com/osmosis-labs/osmosis/v23/x/superfluid/types"
+	cltypes "github.com/osmosis-labs/osmosis/v25/x/concentrated-liquidity/types"
+	gammtypes "github.com/osmosis-labs/osmosis/v25/x/gamm/types"
+	gammmigration "github.com/osmosis-labs/osmosis/v25/x/gamm/types/migration"
+	superfluidtypes "github.com/osmosis-labs/osmosis/v25/x/superfluid/types"
 
-	"github.com/osmosis-labs/osmosis/v23/app/keepers"
-	"github.com/osmosis-labs/osmosis/v23/app/upgrades"
-	"github.com/osmosis-labs/osmosis/v23/x/protorev/types"
+	"github.com/osmosis-labs/osmosis/v25/app/keepers"
+	"github.com/osmosis-labs/osmosis/v25/app/upgrades"
+	"github.com/osmosis-labs/osmosis/v25/x/protorev/types"
 
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v23/x/poolmanager/types"
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v25/x/poolmanager/types"
 )
 
 // clPoolCreationInfo encapsulates the returns from CL pool
@@ -49,7 +50,8 @@ func CreateUpgradeHandler(
 	bpm upgrades.BaseAppParamManager,
 	keepers *keepers.AppKeepers,
 ) upgradetypes.UpgradeHandler {
-	return func(ctx sdk.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
+	return func(context context.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
+		ctx := sdk.UnwrapSDKContext(context)
 		var assetPairs []AssetPair
 
 		// Run migrations before applying any other state changes.
@@ -126,7 +128,10 @@ func CreateUpgradeHandler(
 		// Because we had done direct sends from the community pool, we need to manually change the fee pool to reflect the change in balance.
 
 		// Remove coins we used from the community pool to make the CL positions
-		feePool := keepers.DistrKeeper.GetFeePool(ctx)
+		feePool, err := keepers.DistrKeeper.FeePool.Get(ctx)
+		if err != nil {
+			return nil, err
+		}
 		newPool, negative := feePool.CommunityPool.SafeSub(sdk.NewDecCoinsFromCoins(fullRangeCoinsUsed...))
 		if negative {
 			return nil, fmt.Errorf("community pool cannot be negative: %s", newPool)
@@ -134,7 +139,10 @@ func CreateUpgradeHandler(
 
 		// Update and set the new fee pool
 		feePool.CommunityPool = newPool
-		keepers.DistrKeeper.SetFeePool(ctx, feePool)
+		err = keepers.DistrKeeper.FeePool.Set(ctx, feePool)
+		if err != nil {
+			return nil, err
+		}
 
 		// Set ibc-hooks params
 		keepers.IBCHooksKeeper.SetParams(ctx, ibchookstypes.DefaultParams())

@@ -6,8 +6,8 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
-	"github.com/osmosis-labs/osmosis/v23/app/apptesting"
-	txfeestypes "github.com/osmosis-labs/osmosis/v23/x/txfees/types"
+	"github.com/osmosis-labs/osmosis/v25/app/apptesting"
+	txfeestypes "github.com/osmosis-labs/osmosis/v25/x/txfees/types"
 )
 
 // validates that the pool manager keeper can charge taker fees correctly.
@@ -22,7 +22,7 @@ func (s *KeeperTestSuite) TestChargeTakerFee() {
 
 	var (
 		defaultTakerFee = osmomath.MustNewDecFromStr("0.01")
-		defaultAmount   = sdk.NewInt(10000000)
+		defaultAmount   = osmomath.NewInt(10000000)
 	)
 
 	tests := map[string]struct {
@@ -137,7 +137,7 @@ func (s *KeeperTestSuite) TestChargeTakerFee() {
 				takerFeeTaken = tokenInAfterTakerFee.Sub(tc.tokenIn)
 			}
 			takerFeeModuleAccBal := s.App.BankKeeper.GetAllBalances(s.Ctx, s.App.AccountKeeper.GetModuleAddress(txfeestypes.TakerFeeCollectorName))
-			s.Require().True(sdk.NewCoins(takerFeeTaken).IsEqual(takerFeeModuleAccBal))
+			s.Require().True(sdk.NewCoins(takerFeeTaken).Equal(takerFeeModuleAccBal))
 		})
 	}
 }
