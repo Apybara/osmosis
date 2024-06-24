@@ -44,7 +44,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### State Breaking
 
-* [#8169](https://github.com/osmosis-labs/osmosis/pull/8169) [#8250](https://github.com/osmosis-labs/osmosis/pull/8250) [#8276](https://github.com/osmosis-labs/osmosis/pull/8276) [#8320](https://github.com/osmosis-labs/osmosis/pull/8320) Support non-pool assets in superfluid staking.
+* [#8169](https://github.com/osmosis-labs/osmosis/pull/8169) [#8250](https://github.com/osmosis-labs/osmosis/pull/8250) [#8276](https://github.com/osmosis-labs/osmosis/pull/8276) [#8320](https://github.com/osmosis-labs/osmosis/pull/8320) Support non-pool assets in superfluid staking
 * [#8274](https://github.com/osmosis-labs/osmosis/pull/8274) SDK v50 and Comet v0.38 upgrade
 * [#8358](https://github.com/osmosis-labs/osmosis/pull/8358) Set MinDepositRatio gov param to 1 percent for sdk v50 upgrade
 * [#8344](https://github.com/osmosis-labs/osmosis/pull/8344) Uni-directional trading pair taker fee overrides
@@ -52,7 +52,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### State Compatible
 
-* [#8398](https://github.com/osmosis-labs/osmosis/pull/8398) Lower JSON unmarshalling overhead in IBC packet logic.
+* [#8420](https://github.com/osmosis-labs/osmosis/pull/8420) Remove further unneeded IBC acknowledgements time from CheckTx/RecheckTx.
+
+### Config
+
+* [#8431](https://github.com/osmosis-labs/osmosis/pull/8431) Fix osmosis-indexer config bug that read osmosis-sqs value 
+
+## v25.1.2
+
+* [#8415](https://github.com/osmosis-labs/osmosis/pull/8415) Reset cache on pool creation
+
+## v25.1.1
+
+* [#8394](https://github.com/osmosis-labs/osmosis/pull/8394) Lower timeout commit from 1s to 600ms
+* [#8409](https://github.com/osmosis-labs/osmosis/pull/8409) Add mempool filter to combat IBC spam
+* [#8408](https://github.com/osmosis-labs/osmosis/pull/8408) Bump block sdk to lower recheck times by 25%
+
+## v25.1.0
+
+* [#8398](https://github.com/osmosis-labs/osmosis/pull/8398) Lower JSON unmarshalling overhead in IBC packet logic
 
 ## v25.0.3
 
