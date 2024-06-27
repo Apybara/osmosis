@@ -1,7 +1,0 @@
-compres
-startd
-ans
-crate
-exactIn
-amountIn
-AmountIn
